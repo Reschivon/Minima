@@ -138,13 +138,16 @@ public:
             return;
         }
 
+        static bool wasJustScrolling = false;
         MEVENT event;
         if(key == KEY_MOUSE) {
             if(getmouse(&event) == OK) {
                 if(event.bstate & BUTTON5_PRESSED) {
                     document.moveCaretDown();
-                }if(event.bstate & BUTTON4_PRESSED) {
+                    wasJustScrolling = true;
+                }else if(event.bstate & BUTTON4_PRESSED) {
                     document.moveCaretUp();
+                    wasJustScrolling = true;
                 }
             }
         }
@@ -156,8 +159,9 @@ public:
                 open = false;
                 return;
             }
-            if(command.commandModeCommand(key))
-                mode = EDIT;
+            command.commandModeCommand(key);
+//            if()
+//                mode = EDIT;
         }
     }
 

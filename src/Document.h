@@ -162,6 +162,16 @@ public:
     void moveCaret(Point p) {
         caretLine = p.line;
         caretChar = p.chara;
+
+        if(p.line >= lines.size())
+            p.line = lines.size() - 1;
+        if(p.line < 0)
+            p.line = 0;
+
+        if(p.chara > lines.at(p.line).size())
+            p.chara = lines.at(p.line).size();
+        if(p.chara < 0)
+            p.chara = 0;
     }
 
     void moveCaretLeft() {

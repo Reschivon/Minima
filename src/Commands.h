@@ -99,6 +99,12 @@ class Command {
                     actioned = true;
                     break;
                 }
+                case 'g': {// go to line
+                    int newLine = context.getQuantity();
+                    document.moveCaret({newLine, document.caretPos().chara});
+                    actioned = true;
+                    break;
+                }
 
                 default:
                     break;
