@@ -6,10 +6,10 @@
 #define MINIMA_DOCUMENT_H
 
 struct Point {
-    uint line, chara;
+    int line, chara;
 };
 
-class Range {
+class Range final {
 
     static bool goesForward(Point start, Point end) {
         if (end.line < start.line)
@@ -19,8 +19,11 @@ class Range {
         return true;
     }
 
+    // disable aggregate initialization
+    explicit Range() = default;
+
 public:
-    Point start{}, end{};
+    Point start, end;
 
     Range(Point start_, Point end_) {
         if(goesForward(start_, end_)) {
@@ -37,7 +40,7 @@ public:
 class Document {
 private:
     std::vector<std::string> lines;
-    uint caretChar = 0, caretLine = 0;
+    int caretChar = 0, caretLine = 0;
 
     std::pair<Point, bool> moveLeft(Point curr) {
         bool success = true;
@@ -72,6 +75,28 @@ private:
             curr.chara++;
         }
         return std::make_pair(curr, success);
+    }
+
+
+public:
+    void addLine(const std::string& line) {
+        lines.push_back(line);
+    }
+
+    void newLine() {
+        auto &currLine = lines.at(caretLine);
+        auto rightOfCaret = currLine.substr(caretChar, currLine.size() - caretChar);
+        currLine.erase(caretChar, currLine.size() - caretChar);
+        lines.insert(lines.begin() + caretLine + 1, rightOfCaret);
+        caretLine++;
+        caretChar = 0;
+    }
+
+    void insertWithinLine(const std::string& insert, bool moveCaret = true) {
+        lines.at(caretLine).insert(caretChar, insert);
+        if(moveCaret) {
+            moveCaretChars(insert.length());
+        }
     }
 
     Point charOffset(Point start, int offsetChars) {
@@ -118,26 +143,6 @@ private:
                         lines.begin() + toDelete.end.line + 1);
     }
 
-public:
-    void addLine(const std::string& line) {
-        lines.push_back(line);
-    }
-
-    void newLine() {
-        auto &currLine = lines.at(caretLine);
-        auto rightOfCaret = currLine.substr(caretChar, currLine.size() - caretChar);
-        currLine.erase(caretChar, currLine.size() - caretChar);
-        lines.insert(lines.begin() + caretLine + 1, rightOfCaret);
-        caretLine++;
-        caretChar = 0;
-    }
-
-    void insertWithinLine(const std::string& insert, bool moveCaret = true) {
-        lines.at(caretLine).insert(caretChar, insert);
-        if(moveCaret) {
-            moveCaretChars(insert.length());
-        }
-    }
 
     void deleteChars(int direction, bool moveCaret = true) {
         Point toDelete = charOffset({caretLine, caretChar}, direction);
@@ -175,25 +180,25 @@ public:
         if(int(caretLine) - 1 < 0)
             return;
         caretLine--;
-        caretChar = std::clamp((ulong) caretChar,
-                               (ulong) 0,
-                               lines.at(caretLine).length());
+        caretChar = std::clamp((int) caretChar,
+                               (int) 0,
+                               (int) lines.at(caretLine).length());
     }
 
     void moveCaretDown() {
         if(caretLine + 1 >= lines.size())
             return;
         caretLine++;
-        caretChar = std::clamp((ulong) caretChar,
-                               (ulong) 0,
-                               lines.at(caretLine).length());
+        caretChar = std::clamp((int) caretChar,
+                               (int) 0,
+                               (int) lines.at(caretLine).length());
     }
 
     std::vector<std::string> &getLines() {
         return lines;
     }
 
-    Point getCaretPos() {
+    Point caretPos() {
         return {caretLine, caretChar};
     }
 
@@ -205,32 +210,78 @@ public:
         return lines.at(p.line).at(p.chara);
     }
 
-    Point nextWord() {
-        Point currChar{caretLine, caretChar};
+
+    Range wordOffset(int num) {
+        if(num == 0)
+            return {caretPos(), caretPos()};
+
+        std::function<std::pair<Point, bool>(Point)> advance;
+        if(num > 0)
+            advance = [this](Point begin) { return nextWord(begin); };
+        if(num < 0)
+            advance = [this](Point begin) { return prevWord(begin); };
+
+
+        Point begin = {caretLine, caretChar};
+        num = abs(num) * 2;
+
+        Point end = begin;
+        while(num --> 0) {
+            auto result = advance(end);
+            end = result.first;
+            if(!result.second) break;
+        }
+
+        return Range(begin, end);
+    }
+
+    Range lineOffset(int num) {
+        if(num == 0)
+            return {caretPos(), caretPos()};
+
+        if(num < 0) {
+            int delLines = abs(num);
+            if (caretLine - delLines < 0) // cannot exceed lines above caret
+                delLines = caretLine;
+            return Range({caretLine - delLines, 0},
+                          lineStart());
+        } else {
+            int delLines = abs(num);
+            if (delLines > lines.size() - caretLine - 1) // cannot exceed lines below  caret
+                delLines = lines.size() - caretLine - 1;
+            return Range(lineStart(),
+                         {caretLine + delLines, 0});
+        }
+
+    }
+
+    std::pair<Point, bool> nextWord(Point start) {
+        Point currChar = start;
         bool success;
 
         std::tie(currChar, success) = searchWord(currChar, [this](Point p){return moveRight(p);});
-        return currChar;
+        return {currChar, success};
     }
 
-    Point prevWord() {
-        auto [currChar, success] = moveLeft({caretLine, caretChar});
+    std::pair<Point, bool> prevWord(Point start) {
+        auto [currChar, success] = moveLeft(start);
         if(!success)
-            return {caretLine, caretChar};
+            return {caretPos(), false};
 
         std::tie(currChar, success) = searchWord(currChar, [this](Point p){return moveLeft(p);});
 
-        if (!success)
-            return currChar;
+        if (!success) {
+            return {currChar, false};
+        }
         // now we move one char back right
-        return moveRight(currChar).first;
+        return {moveRight(currChar).first, true};
     }
 
     Point lineStart() {
         return {caretLine, 0};
     }
     Point lineEnd() {
-        return {caretLine, (uint)lines.at(caretLine).size()};
+        return {caretLine, (int)lines.at(caretLine).size()};
     }
 
     /*

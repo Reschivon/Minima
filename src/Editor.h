@@ -11,6 +11,9 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <iomanip>
+#include <cmath>
+#include <bitset>
 
 class Editor {
 private:
@@ -18,10 +21,11 @@ private:
     Command command;
     bool open = true;
 
-    uint scroll = 0;
+    int scroll = 0;
+    int gutterSize = 0;
 
     enum editMode {EDIT=0, COMMAND=1};
-    editMode mode = EDIT;
+    editMode mode = COMMAND;
 public:
     explicit Editor(const std::string& filename) : command(document){
 
@@ -41,31 +45,47 @@ public:
     }
 
     void printStatusLine() {
+        int screenHeight = getmaxy(stdscr);
         std::string statusMessage;
         if(mode == COMMAND) {
             statusMessage += "Command: ";
             statusMessage += command.getCommandChain();
         }
 
-        attron(A_REVERSE);
-        if(mode == COMMAND)
-            attron(COLOR_PAIR(1));
-        mvprintw(LINES-1, 0, statusMessage.c_str());
+        // command bar
+        if(mode == COMMAND) attron(COLOR_PAIR(1));
+        mvprintw(screenHeight - 1, 0, (statusMessage + getStatus()).c_str());
         clrtoeol();
-        if(mode == COMMAND)
-            attroff(COLOR_PAIR(1));
-        //attron(COLOR_PAIR(0));
-        attroff(A_REVERSE);
+        if(mode == COMMAND) attroff(COLOR_PAIR(1));
+
+        // line stats
+        auto[line, chara] = document.caretPos();
+        std::string lineStats = std::to_string(line) + ":" + std::to_string(chara);
+        int screenWidth = getmaxx(stdscr);
+        mvprintw(screenHeight - 1, screenWidth - (int)lineStats.size() - 3, lineStats.c_str());
+    }
+
+    static std::string padLeft(std::string s, int width) {
+        return s.insert(0, width - s.length(), ' ');
     }
 
     void printView() {
-        uint screenHeight = getmaxy(stdscr) - 1; // save a line for status bar
+        int screenHeight = getmaxy(stdscr) - 1; // save a line for status bar
         auto &lines = document.getLines();
 
         int screenLine = 0, documentLine = int(scroll);
         for(; documentLine < lines.size() && screenLine < screenHeight;
               documentLine++, screenLine++) {
-            mvprintw(screenLine, 0, lines.at(documentLine).c_str());
+
+            attron(COLOR_PAIR(2));
+            std::string row = padLeft(std::to_string(documentLine), (int)ceil(std::log10(lines.size())));
+            row += " ";
+            mvprintw(screenLine, 0, row.c_str());
+            attroff(COLOR_PAIR(2));
+
+            gutterSize = (int)row.size();
+            mvprintw(screenLine, gutterSize, lines.at(documentLine).c_str());
+
             clrtoeol();
         }
 
@@ -74,38 +94,74 @@ public:
             clrtoeol();
         }
 
-        auto caretPos = document.getCaretPos();
+    }
+
+    void setScroll() {
+        auto caretPos = document.caretPos();
+        int screenHeight = getmaxy(stdscr) - 1; // save a line for status bar
 
         // try to scroll
         int MARGIN = 3;
+        int smallerMargin = MARGIN;
+        int largerMargin = screenHeight - smallerMargin;
+
         int caretScreenLine = caretPos.line - scroll;
-        if (caretScreenLine < MARGIN) {
-            int toScroll = MARGIN - caretScreenLine;
-            toScroll = std::min(int(scroll), toScroll);
-            scroll -= toScroll;
-        }
-        if(caretScreenLine > screenHeight - MARGIN) {
-            int toScroll = caretScreenLine - (screenHeight - MARGIN);
-            int scrollLimit = document.getLines().size() - screenHeight;
-            toScroll = std::min(scrollLimit - scroll, toScroll);
-            scroll += toScroll;
-        }
-        move(int(caretPos.line) - scroll, int(caretPos.chara));
+        if (caretScreenLine <= smallerMargin)
+            scrollBy(caretScreenLine - smallerMargin);
+
+        if (caretScreenLine > largerMargin)
+            scrollBy(caretScreenLine - largerMargin);
+    }
+    void scrollBy(int delta) {
+        int screenHeight = getmaxy(stdscr) - 1; // save a line for status bar
+
+        scroll += delta;
+
+        int minScroll = 0;
+        int maxScroll = int(document.getLines().size()) - screenHeight;
+        if(maxScroll < 0) maxScroll = 0;
+
+        if (scroll < minScroll) scroll = minScroll;
+
+        if (scroll > maxScroll) scroll = maxScroll;
     }
 
+    void setCaret() {
+        auto caretPos = document.caretPos();
+        move(caretPos.line - scroll, gutterSize + caretPos.chara);
+
+    }
     void eatInput(int key) {
         if(key == 27) { //ESC
             mode = static_cast<enum editMode>((mode + 1) % 2);
             command.clearCommands();
             return;
         }
+
+        MEVENT event;
+        if(key == KEY_MOUSE) {
+            if(getmouse(&event) == OK) {
+                if(event.bstate & BUTTON5_PRESSED) {
+                    document.moveCaretDown();
+                }if(event.bstate & BUTTON4_PRESSED) {
+                    document.moveCaretUp();
+                }
+            }
+        }
+
         if(mode == EDIT) {
             command.editModeCommand(key);
         }else if(mode == COMMAND) {
-            command.commandModeCommand(key);
+            if(key == 'q' || key == 'Q') {
+                open = false;
+                return;
+            }
+            if(command.commandModeCommand(key))
+                mode = EDIT;
         }
     }
-    bool isOpen() const {
+
+    [[nodiscard]] bool isOpen() const {
         return open;
     }
 };

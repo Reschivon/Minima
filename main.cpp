@@ -17,9 +17,13 @@ void curses_init()
         start_color();
         use_default_colors();
     }
+    //BUTTON2_PRESSED | BUTTON3_PRESSED
+    mousemask(ALL_MOUSE_EVENTS, nullptr);
 
-//    init_pair(0, COLOR_WHITE, COLOR_BLACK);
-    init_pair(1, COLOR_BLUE, COLOR_WHITE);
+
+    init_pair(1, COLOR_WHITE, COLOR_BLUE);
+    init_color(COLOR_YELLOW, 900, 680, 80);
+    init_pair(2, COLOR_YELLOW, -1);
 }
 
 int main(int argc, char* argv[]) {
@@ -34,10 +38,16 @@ int main(int argc, char* argv[]) {
 
     curses_init();
 
+    editor.printStatusLine();
+    editor.printView();
+    editor.setCaret();
+    
     while(editor.isOpen()) {
+        editor.eatInput(getch());
+        editor.setScroll();
         editor.printStatusLine();
         editor.printView();
-        editor.eatInput(getch());
+        editor.setCaret();
     }
 
     refresh();

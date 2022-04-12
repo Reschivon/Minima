@@ -5,9 +5,110 @@
 #ifndef MINIMA_COMMANDS_H
 #define MINIMA_COMMANDS_H
 
+struct CommandContext {
+private:
+    std::string quantityStr = "";
+public:
+    int sign = 1;
+    enum UNIT {CHAR, WORD, LINE, PARA};
+    UNIT unit = WORD;
+
+    void appendQuantityDigit(char d) {
+        quantityStr += d;
+    }
+    int getQuantity(){
+        if (!quantityStr.empty())
+            return std::stoi(quantityStr);
+        else return 1; // default
+    }
+
+    Range getWorkingRange(Document &document) {
+        switch(unit) {
+            case CHAR:
+                return Range(document.caretPos(),
+                        document.charOffset(document.caretPos(), sign * getQuantity()));
+            case WORD:
+                return document.wordOffset(sign * getQuantity());
+            case LINE:
+                return document.lineOffset(sign * getQuantity());
+            case PARA:
+                return Range({0,0},{0,0}); // not implemented
+            default:
+                return Range({0,0},{0,0});
+        }
+    }
+};
+
 class Command {
     std::string commandChain;
     Document &document;
+    CommandContext context;
+
+    bool commandChainAdd(char key) {
+        key = letterLowerCase(key);
+        commandChain += key;
+
+        return tryExecCommandChain();
+    }
+    bool tryExecCommandChain() {
+        bool actioned = false;
+        context = CommandContext();
+        for(char key : commandChain) {
+            switch (key) {
+                // context chars
+                case '-':
+                    context.sign = -1;
+                    break;
+
+                    // I KNOW IT'S BAD BUT IT WORKS FOR NOW
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                case '0':
+                    context.appendQuantityDigit(char(key));
+                    break;
+
+                case 'c':
+                    context.unit = CommandContext::CHAR;
+                    break;
+                case 'w':
+                    context.unit = CommandContext::WORD;
+                    break;
+                case 'r':
+                    context.unit = CommandContext::LINE;
+                    break;
+                case 'p':
+                    context.unit = CommandContext::PARA;
+                    break;
+
+                    // actionable chars
+                case 'd': {// delete
+                    Range toDel = context.getWorkingRange(document);
+                    document.deleteRange(toDel);
+                    if(context.sign < 0)
+                        document.moveCaret(toDel.start);
+                    else
+                        document.moveCaret(toDel.start);
+
+                    actioned = true;
+                    break;
+                }
+
+                default:
+                    break;
+            }
+
+            if(actioned)
+                break;
+        }
+        return actioned;
+    }
 
     /*
      * Returns whether command was registered
@@ -41,10 +142,10 @@ class Command {
                 document.moveCaretDown();
                 break;
             case 'u':
-                document.moveCaret(document.prevWord());
+                document.moveCaret(document.prevWord(document.caretPos()).first);
                 break;
             case 'o':
-                document.moveCaret(document.nextWord());
+                document.moveCaret(document.nextWord(document.caretPos()).first);
                 break;
             default:
                 validCommand = false;
@@ -87,10 +188,6 @@ class Command {
         return letter;
     }
 
-    void commandChainAdd(char key) {
-        key = letterLowerCase(key);
-        commandChain += key;
-    }
 public:
     explicit Command(Document& doc) : document(doc) {}
 
@@ -98,24 +195,31 @@ public:
         auto [ctrlPressed, commandStripped]  = controlKey(key);
         if(ctrlPressed) {
             bool validCommand = immediateCommands(commandStripped);
-//            if(!validCommand) {
-//                commandChainAdd(commandStripped);
-//            }
         } else {
             editText(key);
         }
     }
 
-    void commandModeCommand(int key) {
+    bool commandModeCommand(int key) {
+        bool commandExecuted = false;
         if(key == KEY_BACKSPACE) {
             backspace();
-            return;
+            return false;
         }
         auto [ctrlPressed, commandStripped] = controlKey(key);
+
+        if(letterLowerCase(commandStripped) == 'y') return false;
+        // if(letterLowerCase(commandStripped) == 'z') return false;
+
         bool validCommand = immediateCommands(commandStripped);
         if(!validCommand) {
-            commandChainAdd(commandStripped);
+            bool actioned = commandChainAdd(commandStripped);
+            if(actioned) {
+                commandChain.clear();
+                return true;
+            }
         }
+        return false;
     }
 
 
@@ -125,10 +229,12 @@ public:
 
     void clearCommands() {
         commandChain.clear();
+        context = CommandContext();
     }
 
     void backspace() {
-        commandChain.erase(commandChain.end()-1, commandChain.end());
+        if(!commandChain.empty())
+            commandChain.erase(commandChain.end()-1, commandChain.end());
     }
 
 };

@@ -15,7 +15,6 @@ void debug_add(uint a) {
     status += std::to_string(a) + " ";
 }
 
-
 std::string newlines_have_indents(const std::string &in) {
     return std::regex_replace(in, std::regex("\n"), tab_string);
 }

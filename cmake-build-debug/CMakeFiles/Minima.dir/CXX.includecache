@@ -21,6 +21,12 @@ iostream
 -
 sstream
 -
+iomanip
+-
+cmath
+-
+bitset
+-
 
 ../src/Print.h
 iostream
