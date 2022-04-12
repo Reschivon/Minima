@@ -100,8 +100,24 @@ class Command {
                     break;
                 }
                 case 'g': {// go to line
-                    int newLine = context.getQuantity();
-                    document.moveCaret({newLine, document.caretPos().chara});
+                    Range toGo = context.getWorkingRange(document);
+                    Point dest;
+                    if(context.sign < 0)
+                        dest = toGo.start;
+                    else
+                        dest = toGo.end;
+
+                    document.moveCaret(dest);
+                    actioned = true;
+                    break;
+                }
+                case 'h': {
+                    document.moveCaret(document.lineStart());
+                    actioned = true;
+                    break;
+                }
+                case 'n': {
+                    document.moveCaret(document.lineEnd());
                     actioned = true;
                     break;
                 }
@@ -215,7 +231,7 @@ public:
         auto [ctrlPressed, commandStripped] = controlKey(key);
 
         if(letterLowerCase(commandStripped) == 'y') return false;
-        // if(letterLowerCase(commandStripped) == 'z') return false;
+        if(letterLowerCase(commandStripped) == 'z') return false;
 
         bool validCommand = immediateCommands(commandStripped);
         if(!validCommand) {
