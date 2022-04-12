@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../src/Commands.h
+
+../src/Document.h
+
+../src/Editor.h
+Document.h
+../src/Document.h
+Commands.h
+../src/Commands.h
+fstream
+-
+iostream
+-
+sstream
+-
+
+../src/Print.h
+iostream
+-
+regex
+-
+
+/home/reschivon/Minima/main.cpp
+iostream
+-
+ncurses.h
+-
+Print.h
+-
+Editor.h
+-
+

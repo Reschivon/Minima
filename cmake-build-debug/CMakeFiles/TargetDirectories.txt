@@ -1,0 +1,3 @@
+/home/reschivon/Minima/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/reschivon/Minima/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/reschivon/Minima/cmake-build-debug/CMakeFiles/Minima.dir
