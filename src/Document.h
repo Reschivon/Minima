@@ -203,37 +203,41 @@ public:
     }
 
     [[nodiscard]]
-    std::pair<Point, bool> nextCharChange(Point currChar, int direction) const {
+    Point nextCharChange(Point currChar, int num) const {
         std::pair<Point, bool> runningChar = {currChar, true};
         bool startState = std::isspace(charAt(currChar));
 
         // move until exit or enter word
+        int transitions = 0;
         do {
-            runningChar = stepChar(runningChar.first, direction);
-            if(!runningChar.second) return {runningChar.first, false};
-        } while(isspace(charAt(runningChar.first)) == startState);
+            runningChar = stepChar(runningChar.first, num);
+            bool currSpace = isspace(charAt(runningChar.first));
+            if(currSpace != startState) {
+                transitions++;
+                startState = currSpace;
+            }
+            if(!runningChar.second) return runningChar.first;
+        } while(transitions < abs(num));
 
-        return {runningChar.first, true};
+        return runningChar.first;
     }
 
     [[nodiscard]]
-    Range wordOffset(Point init, int num) const {
+    Range wordOffset(Point start, int num) const {
         if(num == 0)
-            return {init, init};
-
-        Point start = init;
+            return {start, start};
 
         // each word counts for two changes
-        num = abs(num) * 2;
+        if(num < 0)
+            num = num * 2 + 0;
+        else
+            num = num * 2 - 1;
 
-        Point end = start;
-        while(num --> 0) {
-            auto result = nextCharChange(end, num);
-            end = result.first;
-            if(!result.second) break;
-        }
+        Point end = nextCharChange(start, num);
 
-        return Range(init, end);
+        if(num < 0) end = stepChar(end, 1).first;
+
+        return Range(start, end);
     }
 
     [[nodiscard]]
