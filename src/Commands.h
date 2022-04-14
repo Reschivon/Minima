@@ -6,10 +6,12 @@
 #define MINIMA_COMMANDS_H
 
 #include <numeric>
+#include "Document.h"
+#include "History.h"
 
 struct CommandContext {
 private:
-    std::string quantityStr = "";
+    std::string quantityStr;
 public:
     int sign = 1;
     enum UNIT {CHAR, WORD, LINE, PARA};
@@ -24,15 +26,15 @@ public:
         else return 1; // default
     }
 
-    Range getWorkingRange(Document &document) {
+    Range getWorkingRange(Document &doc) {
         switch(unit) {
             case CHAR:
-                return Range(document.caretPos(),
-                        document.charOffset(document.caretPos(), sign * getQuantity()));
+                return Range(doc.caret(),
+                             doc.charOffset(doc.caret(), sign * getQuantity()));
             case WORD:
-                return document.wordOffset(sign * getQuantity());
+                return doc.wordOffset(doc.caret(), sign * getQuantity());
             case LINE:
-                return document.lineOffset(sign * getQuantity());
+                return doc.lineOffset(doc.caret(), sign * getQuantity());
             case PARA:
                 return Range({0,0},{0,0}); // not implemented
             default:
@@ -41,17 +43,12 @@ public:
     }
 };
 
-struct CopyChunk {
-    std::string start;
-    std::vector<std::string> middle;
-    std::string end;
-};
-
 class Command {
     std::string commandChain;
-    CopyChunk copyBuf;
-    Document &document;
+    std::string copyBuf;
+    Document &doc;
     CommandContext context;
+    History &history;
 
     bool commandChainAdd(char key) {
         key = letterLowerCase(key);
@@ -99,35 +96,27 @@ class Command {
 
                     // actionable chars
                 case 'd': {// delete
-                    Range toDel = context.getWorkingRange(document);
-                    document.deleteRange(toDel);
-                    if(context.sign < 0)
-                        document.moveCaret(toDel.start);
-                    else
-                        document.moveCaret(toDel.start);
+                    Range toDel = context.getWorkingRange(doc);
+                    doc.deleteRange(toDel);
+                    doc.setCaret(toDel.start);
 
                     actioned = true;
                     break;
                 }
                 case 'g': {// go to line
-                    Range toGo = context.getWorkingRange(document);
-                    Point dest;
-                    if(context.sign < 0)
-                        dest = toGo.start;
-                    else
-                        dest = toGo.end;
-
-                    document.moveCaret(dest);
+                    Range range = context.getWorkingRange(doc);
+                    Point dest = context.sign < 0 ? range.start : range.end;
+                    doc.setCaret(dest);
                     actioned = true;
                     break;
                 }
                 case 'h': {
-                    document.moveCaret(document.lineStart());
+                    doc.setCaret(Document::lineStart(doc.caret()));
                     actioned = true;
                     break;
                 }
                 case 'n': {
-                    document.moveCaret(document.lineEnd());
+                    doc.setCaret(doc.lineEnd(doc.caret()));
                     actioned = true;
                     break;
                 }
@@ -162,48 +151,44 @@ class Command {
         bool validCommand = true;
         switch (char(letterLowerCase(rawKey))) {
             case 'j':
-                document.moveCaretLeft();
+                doc.setCaret(doc.charOffset(doc.caret(), -1));
                 break;
             case 'l':
-                document.moveCaretRight();
+                doc.setCaret(doc.charOffset(doc.caret(), 1));
                 break;
             case 'i':
-                document.moveCaretUp();
+                doc.setCaret({doc.line() - 1, doc.chara()});
                 break;
             case 'k':
-                document.moveCaretDown();
+                doc.setCaret({doc.line() + 1, doc.chara()});
                 break;
             case 'u':
-                document.moveCaret(document.prevWord(document.caretPos()).first);
+                doc.setCaret(doc.wordOffset(doc.caret(), -1).start);
                 break;
             case 'o':
-                document.moveCaret(document.nextWord(document.caretPos()).first);
+                doc.setCaret(doc.wordOffset(doc.caret(), 1).end);
                 break;
             case 's':
-                document.toggleSelection();
+                doc.toggleSelection();
                 break;
             case 'c': {
-                auto selection = document.getSelection();
+                auto selection = doc.getSelection();
                 if (!selection.isEmpty())
-                    selectionToString(selection, copyBuf);
+                    copyBuf = doc.selectionToString(selection);
                 break;
             }
             case 'x': {
-                auto selection = document.getSelection();
+                auto selection = doc.getSelection();
                 if (!selection.isEmpty())
-                    selectionToString(selection, copyBuf);
-                document.deleteRange(selection);
+                    copyBuf = doc.selectionToString(selection);
+                doc.deleteRange(selection);
                 break;
             }
             case 'v':
-                document.insertWithinLine(copyBuf.start);
-                if(!copyBuf.middle.empty())
-                    document.newLine();
-                for(const std::string &line : copyBuf.middle) {
-                    document.insertWithinLine(line);
-                    document.newLine();
-                }
-                document.insertWithinLine(copyBuf.end);
+                doc.insertString(copyBuf);
+                break;
+            case 'z':
+                history.undoLastAction();
                 break;
             default:
                 validCommand = false;
@@ -215,25 +200,25 @@ class Command {
     void editText(int key) {
         switch (key) {
             case KEY_BACKSPACE:
-                document.deleteChars(-1);
+                doc.deleteRange({doc.caret(), doc.charOffset(doc.caret(), -1)});
                 break;
             case KEY_DC:
-                document.deleteChars(1, false);
+                doc.deleteRange({doc.caret(), doc.charOffset(doc.caret(), 1)});
                 break;
             case KEY_ENTER:
             case 13:
 //            case 10:
-                document.newLine();
+                doc.insertString("\n");
                 break;
             case KEY_BTAB:
             case KEY_CTAB:
             case KEY_STAB:
             case KEY_CATAB:
 //            case 9:
-                document.insertWithinLine("    ");
+                doc.insertString("    ");
                 break;
             default:
-                document.insertWithinLine(std::string(1, char(key)));
+                doc.insertString(std::string(1, char(key)));
         }
     }
 
@@ -245,41 +230,12 @@ class Command {
         return letter;
     }
 
-    static std::string sub(const std::string &in, size_t start, size_t end) {
-        return in.substr(start, end - start);
-    }
-
-    void selectionToString(Range selection, CopyChunk &dest){
-        dest.start.clear();
-        dest.middle.clear();
-        dest.end.clear();
-
-        document.validifyRange(selection);
-
-        auto &lines = document.getLines();
-        Point start = selection.start;
-        Point end   = selection.end;
-
-        if(start.line == end.line) {
-            dest.start += sub(lines.at(start.line), start.chara, end.chara);
-            return;
-        }
-        // begin
-        dest.start += sub(lines.at(start.line), start.chara, std::string::npos);
-        // mid
-        for(auto it = lines.begin() + start.line + 1;
-            it < lines.begin() + end.line; it++) {
-            dest.middle.push_back(*it);
-        }
-        // end
-        dest.end += sub(lines.at(end.line), 0, end.chara);
-    }
 
 public:
-    explicit Command(Document& doc) : document(doc) {}
+    explicit Command(Document& doc, History &history) : doc(doc), history(history) {}
 
     void editModeCommand(int key) {
-        auto [ctrlPressed, commandStripped]  = controlKey(key);
+        auto [ctrlPressed, commandStripped] = controlKey(key);
         bool validCommand = false;
         if(ctrlPressed) {
             validCommand = immediateCommands(commandStripped);
@@ -287,7 +243,6 @@ public:
             editText(key);
             validCommand = true;
         }
-        if(validCommand) document.clearSelection();
     }
 
     bool commandModeCommand(int key) {
@@ -298,8 +253,8 @@ public:
         }
         auto [ctrlPressed, commandStripped] = controlKey(key);
 
-        if(letterLowerCase(commandStripped) == 'y') return false;
-        if(letterLowerCase(commandStripped) == 'z') return false;
+        // if(letterLowerCase(commandStripped) == 'y') return false;
+        // if(letterLowerCase(commandStripped) == 'z') return false;
 
         bool validCommand = immediateCommands(commandStripped);
         if(!validCommand) {

@@ -7,6 +7,7 @@
 
 extern std::string status;
 std::string getStatus();
+void setStatus(std::string);
 
 void debug_add(std::basic_string<char> a);
 void debug_add(int a);
@@ -14,7 +15,6 @@ void debug_add(uint a);
 
 template <typename... Args>
 inline void dd(Args&&... args) {
-    status.clear();
     (debug_add(std::forward<Args>(args)), ...);
 }
 

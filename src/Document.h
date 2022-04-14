@@ -5,41 +5,10 @@
 #ifndef MINIMA_DOCUMENT_H
 #define MINIMA_DOCUMENT_H
 
-struct Point {
-    int line, chara;
-};
+#include <utility>
+#include <optional>
 
-class Range final {
-
-    static bool goesForward(Point start, Point end) {
-        if (start.line < end.line)
-            return true;
-        if (start.line > end.line)
-            return false;
-        return start.chara < end.chara;
-    }
-
-    // disable aggregate initialization
-    explicit Range() = default;
-
-public:
-    Point start, end;
-
-    Range(Point start_, Point end_) {
-        if(goesForward(start_, end_)) {
-            start = start_;
-            end = end_;
-        } else {
-            start = end_;
-            end = start_;
-        }
-    }
-
-    [[nodiscard]] bool isEmpty() const{
-        return start.line == end.line && start.chara == end.chara;
-    }
-};
-
+#include "Structure.h"
 
 class Document {
 private:
@@ -50,13 +19,16 @@ private:
     Point selectEnd = {0, 0};
     bool selecting = false;
 
-    std::pair<Point, bool> moveLeft(Point curr) {
+    /* Steppers */
+
+    [[nodiscard]]
+    std::pair<Point,bool> stepLeft(Point curr) const {
         bool success = true;
         if(curr.chara == 0) {
             // move up a line if possible
             if(curr.line > 0) {
                 curr.line--;
-                curr.chara = lines.at(curr.line).length();
+                curr.chara = (int) lines.at(curr.line).length();
             } else {
                 success = false;
             }
@@ -64,11 +36,12 @@ private:
             // move back a character
             curr.chara--;
         }
-        return std::make_pair(curr, success);
 
+        return {curr, success};
     }
 
-    std::pair<Point, bool> moveRight(Point curr) {
+    [[nodiscard]]
+    std::pair<Point, bool> stepRight(Point curr) const {
         bool success = true;
         if(curr.chara == lines.at(curr.line).length()) {
             // move down a line if possible
@@ -82,41 +55,74 @@ private:
             // move forward a character
             curr.chara++;
         }
-        return std::make_pair(curr, success);
+
+        return {curr, success};
     }
 
+    [[nodiscard]]
+    std::pair<Point, bool> stepChar(Point curr, int direction) const {
+        if(direction < 0)
+            return stepLeft(curr);
+        if(direction > 0)
+            return stepRight(curr);
+        return {curr, true};
+    }
+
+    /**
+    * Insert any char, including new line
+    */
+    void insertChar(char insert, Point start) {
+        if(insert == '\n') {
+            auto &currLine = lines.at(start.line);
+            auto rightOfCaret = currLine.substr(start.chara, std::string::npos);
+            currLine.erase(start.chara, std::string::npos);
+            lines.insert(lines.begin() + start.line + 1, rightOfCaret);
+            caretLine += 1;
+            caretChar = 0;
+            return;
+        } else {
+            lines.at(start.line).insert(start.chara, std::string(1, insert));
+            caretChar++;
+        }
+    }
+
+    void insertInLine(const std::string& insert, Point start) {
+        auto &line = lines.at(start.line);
+        line.insert(start.chara, insert);
+        caretChar += insert.size();
+    }
 
 public:
+
+    std::function<void(Action)> updateHistory{};
+
+    /* Related to Highlighting */
+
     void toggleSelection() {
         if (selecting) {
             selecting = false;
         } else {
             selecting = true;
-            selectBegin = caretPos();
-            selectEnd = caretPos();
+            selectBegin = caret();
+            selectEnd = caret();
         }
-    }
-
-    void clearSelection() {
-        selectBegin = {0, 0};
-        selectEnd =  {0, 0};
-        selecting = false;
     }
 
     Range getSelection() {
-        return Range(selectBegin, selectEnd);
+        Range sel(selectBegin, selectEnd);
+        validifyRange(sel);
+        return sel;
     }
-    bool isSelection() const {
+
+    [[nodiscard]] bool isSelecting() const {
         return selecting;
     }
+
     void updateSelection() {
-        if(selecting) {
-//            if(caretChar == lines.at(caretLine).size())
-//                selectEnd = {caretLine + 1, 0};
-//            else
-                selectEnd = caretPos();
-        }
+        if(selecting)
+            selectEnd = caret();
     }
+
     void validifyRange(Range &check) {
         if(check.start.line >= lines.size())
             check.start.line = (int) lines.size() - 1;
@@ -128,140 +134,40 @@ public:
             check.end.chara = (int) lines.at(check.end.line).size();
     }
 
-    void addLine(const std::string& line) {
-        lines.push_back(line);
-    }
-
-    void newLine() {
-        auto &currLine = lines.at(caretLine);
-        auto rightOfCaret = currLine.substr(caretChar, currLine.size() - caretChar);
-        currLine.erase(caretChar, currLine.size() - caretChar);
-        lines.insert(lines.begin() + caretLine + 1, rightOfCaret);
-        caretLine++;
-        caretChar = 0;
-    }
-
-    void insertWithinLine(const std::string& insert, bool moveCaret = true) {
-        lines.at(caretLine).insert(caretChar, insert);
-        if(moveCaret) {
-            moveCaretChars(insert.length());
-        }
-    }
-
-    Point charOffset(Point start, int offsetChars) {
-        Point curr = start;
-
-        if(offsetChars < 0) {
-            offsetChars = abs(offsetChars);
-            while(offsetChars --> 0) {
-                bool success;
-                std::tie(curr, success) = moveLeft(curr);
-                if(!success) break;
-            }
-        } else {
-            while (offsetChars --> 0) {
-                bool success;
-                std::tie(curr, success) = moveRight(curr);
-                if(!success) break;
-            }
-        }
-
-        return curr;
-    }
-
-    void deleteRange(Range toDelete) {
-        if(toDelete.start.line == toDelete.end.line) {
-            auto &startLine = lines.at(toDelete.start.line);
-            startLine.erase(toDelete.start.chara, toDelete.end.chara - toDelete.start.chara);
-            return;
-        }
-
-        // Merge lines whose linebreak has been deleted
-        auto endLine = lines.at(toDelete.end.line);
-        auto endLineRight = endLine.substr(toDelete.end.chara, endLine.size() - toDelete.end.chara);
-
-        auto &startLine = lines.at(toDelete.start.line);
-        startLine.erase(startLine.begin() + toDelete.start.chara,
-                        startLine.end());
-        startLine += endLineRight;
-
-        // delete the complete lines
-        int numToDel = toDelete.end.line - toDelete.start.line;
-        if (numToDel > 0)
-            lines.erase(lines.begin() + toDelete.start.line + 1,
-                        lines.begin() + toDelete.end.line + 1);
-    }
-
-
-    void deleteChars(int direction, bool moveCaret = true) {
-        Point toDelete = charOffset({caretLine, caretChar}, direction);
-        deleteRange(Range({caretLine, caretChar}, toDelete));
-        if(moveCaret) {
-            caretLine = toDelete.line;
-            caretChar = toDelete.chara;
-        }
-    }
-
-    void moveCaretChars(int num) {
-        Point newPos = charOffset({caretLine, caretChar}, num);
-        caretLine = newPos.line;
-        caretChar = newPos.chara;
-    }
-
-    void moveCaret(Point p) {
-        caretLine = p.line;
-        caretChar = p.chara;
-
-        if(p.line >= lines.size())
-            p.line = lines.size() - 1;
-        if(p.line < 0)
-            p.line = 0;
-
-        if(p.chara > lines.at(p.line).size())
-            p.chara = lines.at(p.line).size();
-        if(p.chara < 0)
-            p.chara = 0;
-    }
-
-    void moveCaretLeft() {
-        auto new_pos = moveLeft({caretLine, caretChar});
-        caretLine = new_pos.first.line;
-        caretChar = new_pos.first.chara;
-    }
-
-    void moveCaretRight() {
-        auto new_pos = moveRight({caretLine, caretChar});
-        caretLine = new_pos.first.line;
-        caretChar = new_pos.first.chara;
-    }
-
-    void moveCaretUp() {
-        if(int(caretLine) - 1 < 0)
-            return;
-        caretLine--;
-        caretChar = std::clamp((int) caretChar,
-                               (int) 0,
-                               (int) lines.at(caretLine).length());
-    }
-
-    void moveCaretDown() {
-        if(caretLine + 1 >= lines.size())
-            return;
-        caretLine++;
-        caretChar = std::clamp((int) caretChar,
-                               (int) 0,
-                               (int) lines.at(caretLine).length());
-    }
+    /* Loose utils */
 
     const std::vector<std::string> &getLines() {
         return lines;
     }
 
-    Point caretPos() {
-        return {caretLine, caretChar};
+    void setLines(std::vector<std::string> newLines) {
+        lines = std::move(newLines);
     }
 
-    char charAt(Point p) {
+    [[nodiscard]] inline
+    Point caret() const {
+        return {caretLine, caretChar};
+    }
+    [[nodiscard]]
+    int line() const {
+        return caretLine;
+    }
+    [[nodiscard]]
+    int chara() const {
+        return caretChar;
+    }
+
+    [[nodiscard]] static
+    Point lineStart(Point start) {
+        return {start.line, 0};
+    }
+    [[nodiscard]]
+    Point lineEnd(Point start) const {
+        return {start.line, (int)lines.at(start.line).size()};
+    }
+
+    [[nodiscard]]
+    char charAt(Point p) const {
         if(lines.at(p.line).length() == p.chara) {
             return ' ';
         }
@@ -269,99 +175,180 @@ public:
         return lines.at(p.line).at(p.chara);
     }
 
+    void setCaret(Point p) {
+        p.line = std::clamp(p.line,
+                            0,
+                            (int) lines.size() - 1);
+        p.chara = std::clamp(p.chara,
+                             0,
+                             (int) lines.at(p.line).size());
 
-    Range wordOffset(int num) {
+        caretLine = p.line;
+        caretChar = p.chara;
+    }
+
+
+    /* Static steppers */
+    Point charOffset(Point start, int offsetChars) {
+        int sign = signum(offsetChars);
+        offsetChars = abs(offsetChars);
+
+        std::pair<Point, bool> curr = {start, true};
+        while(offsetChars --> 0) {
+            curr = stepChar(curr.first, sign);
+            if(!curr.second) break;
+        }
+
+        return curr.first;
+    }
+
+    [[nodiscard]]
+    std::pair<Point, bool> nextCharChange(Point currChar, int direction) const {
+        std::pair<Point, bool> runningChar = {currChar, true};
+        bool startState = std::isspace(charAt(currChar));
+
+        // move until exit or enter word
+        do {
+            runningChar = stepChar(runningChar.first, direction);
+            if(!runningChar.second) return {runningChar.first, false};
+        } while(isspace(charAt(runningChar.first)) == startState);
+
+        return {runningChar.first, true};
+    }
+
+    [[nodiscard]]
+    Range wordOffset(Point init, int num) const {
         if(num == 0)
-            return {caretPos(), caretPos()};
+            return {init, init};
 
-        std::function<std::pair<Point, bool>(Point)> advance;
-        if(num > 0)
-            advance = [this](Point begin) { return nextWord(begin); };
-        if(num < 0)
-            advance = [this](Point begin) { return prevWord(begin); };
+        Point start = init;
 
-
-        Point begin = {caretLine, caretChar};
+        // each word counts for two changes
         num = abs(num) * 2;
 
-        Point end = begin;
+        Point end = start;
         while(num --> 0) {
-            auto result = advance(end);
+            auto result = nextCharChange(end, num);
             end = result.first;
             if(!result.second) break;
         }
 
-        return Range(begin, end);
+        return Range(init, end);
     }
 
-    Range lineOffset(int num) {
-        if(num == 0)
-            return {caretPos(), caretPos()};
+    [[nodiscard]]
+    Range lineOffset(Point start, int num) const {
+        if(num == 0) return {caret(), caret()};
 
-        if(num < 0) {
-            int delLines = abs(num);
-            if (caretLine - delLines < 0) // cannot exceed lines above caret
-                delLines = caretLine;
-            return Range({caretLine - delLines, 0},
-                          lineStart());
-        } else {
-            int delLines = abs(num);
-            if (delLines > lines.size() - caretLine - 1) // cannot exceed lines below  caret
-                delLines = lines.size() - caretLine - 1;
-            return Range(lineStart(),
-                         {caretLine + delLines, 0});
+        start = {start.line, 0};
+
+        int endLine = start.line + num;
+        endLine = std::clamp(endLine,
+                             0,
+                             (int) lines.size() - 1);
+
+        return Range(start, {endLine, 0});
+    }
+
+
+    static std::string substring(const std::string &in, size_t start, size_t end) {
+        if(start - end == 0)
+            return "";
+        return in.substr(start, end - start);
+    }
+    static void eraseString(std::string &in, size_t start, size_t end) {
+        in.erase(start, end - start);
+    }
+
+    /* Bad boy general insert and delete */
+    void deleteRange(Range toDelete) {
+        if(toDelete.start.line == toDelete.end.line) {
+            auto &startLine = lines.at(toDelete.start.line);
+            eraseString(startLine, toDelete.start.chara, toDelete.end.chara);
+            setCaret(toDelete.start);
+
+            updateHistory({
+                  Action::DELETE,
+                  selectionToString(toDelete),
+                  toDelete
+                  });
+
+            return;
         }
 
+        std::string stringToDelete = selectionToString(toDelete);
+
+        // Merge lines whose linebreak has been deleted
+        auto &startLine = lines.at(toDelete.start.line);
+        eraseString(startLine, toDelete.start.chara, std::string::npos);
+
+        auto endLine = lines.at(toDelete.end.line);
+        auto endLineRight = endLine.substr(toDelete.end.chara, endLine.size() - toDelete.end.chara);
+
+        startLine += endLineRight;
+
+        // delete the complete lines
+        int numToDel = toDelete.end.line - toDelete.start.line;
+        if (numToDel > 0)
+            lines.erase(lines.begin() + toDelete.start.line + 1,
+                        lines.begin() + toDelete.end.line + 1);
+
+        updateHistory({Action::DELETE, stringToDelete, toDelete
+        });
+
+        setCaret(toDelete.start);
     }
 
-    std::pair<Point, bool> nextWord(Point start) {
-        Point currChar = start;
-        bool success;
 
-        std::tie(currChar, success) = searchWord(currChar, [this](Point p){return moveRight(p);});
-        return {currChar, success};
-    }
+    void insertString(const std::string& insert) {
+        Point initialCaret = caret();
 
-    std::pair<Point, bool> prevWord(Point start) {
-        auto [currChar, success] = moveLeft(start);
-        if(!success)
-            return {caretPos(), false};
+        size_t pos = 0;
+        while (true) {
+            size_t nextNewline = (int) insert.find('\n', pos);
+            insertInLine(substring(insert, pos, nextNewline), caret());
 
-        std::tie(currChar, success) = searchWord(currChar, [this](Point p){return moveLeft(p);});
-
-        if (!success) {
-            return {currChar, false};
+            if(nextNewline == std::string::npos)
+                break;
+            pos = nextNewline + 1;
+            insertChar('\n', caret());
         }
-        // now we move one char back right
-        return {moveRight(currChar).first, true};
+
+        updateHistory({
+            Action::ADD,
+            insert,
+            {initialCaret, caret()}
+        });
     }
 
-    Point lineStart() {
-        return {caretLine, 0};
-    }
-    Point lineEnd() {
-        return {caretLine, (int)lines.at(caretLine).size()};
-    }
 
-    /*
-     * OOf, too clever
-     */
-    std::pair<Point, bool> searchWord(Point currChar, const std::function<std::tuple<Point, bool>(Point)>& advance) {
+    std::string selectionToString(Range selection){
+        std::string text;
 
-        std::function<bool(Point)> continuation;
-        if(charAt(currChar) == ' ')
-            continuation = [this](Point c){return charAt(c) == ' ';};
-        if(charAt(currChar) != ' ')
-            continuation = [this](Point c){return charAt(c) != ' ';};
+        validifyRange(selection);
 
-        // move until exit or enter word
-        do {
-            bool success;
-            std::tie(currChar, success) = advance(currChar);
-            if(!success) return {currChar, false};
-        } while(continuation(currChar));
+        Point start = selection.start;
+        Point end   = selection.end;
 
-        return {currChar, true};
+        if(start.line == end.line) {
+            text += substring(lines.at(start.line), start.chara, end.chara);
+            return text;
+        }
+        // begin
+        text += substring(lines.at(start.line), start.chara, std::string::npos);
+        text += '\n';
+
+        // mid
+        for(auto it = lines.begin() + start.line + 1;
+            it < lines.begin() + end.line; it++) {
+            text += (*it);
+            text += '\n';
+        }
+
+        // end
+        text += substring(lines.at(end.line), 0, end.chara);
+
+        return text;
     }
 };
 

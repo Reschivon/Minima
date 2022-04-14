@@ -7,6 +7,7 @@
 
 #include "Document.h"
 #include "Commands.h"
+#include "History.h"
 
 #include <fstream>
 #include <iostream>
@@ -14,6 +15,7 @@
 #include <iomanip>
 #include <cmath>
 #include <bitset>
+#include <utility>
 
 class Editor {
 private:
@@ -21,6 +23,8 @@ private:
 
     Document document;
     Command command;
+    History history;
+
     bool open = true;
 
     int scroll = 0;
@@ -29,21 +33,26 @@ private:
     enum editMode {EDIT=0, COMMAND=1};
     editMode mode = COMMAND;
 public:
-    explicit Editor(const std::string& filename) : command(document), filename(filename){
+    explicit Editor(const std::string& filename)
+                : filename(filename), history(document), command(document, history){
 
         std::ifstream infile(filename.c_str());
         if(infile.is_open()) {
             // read the file to document
+            std::vector<std::string> allLines{};
             while (!infile.eof()) {
                 std::string line;
                 getline(infile, line);
-                document.addLine(line);
+                allLines.push_back(line);
             }
+            document.setLines(std::move(allLines));
         } else {
             open = false;
             println("File can't be opened");
         }
         infile.close();
+
+        document.updateHistory = [this](Action action){history.addAction(std::move(action));};
     }
 
     void printStatusLine() {
@@ -61,9 +70,9 @@ public:
         if(mode == COMMAND) attroff(COLOR_PAIR(1));
 
         // line stats
-        auto[line, chara] = document.caretPos();
+        auto[line, chara] = document.caret();
         std::string lineStats;
-        lineStats += (document.isSelection() ? "select    " : "");
+        lineStats += (document.isSelecting() ? "select    " : "");
         lineStats += std::to_string(line) + ":" + std::to_string(chara);
         int screenWidth = getmaxx(stdscr);
         mvprintw(screenHeight - 1, screenWidth - (int)lineStats.size() - 3, lineStats.c_str());
@@ -158,7 +167,7 @@ public:
     }
 
     void setScroll() {
-        auto caretPos = document.caretPos();
+        auto caretPos = document.caret();
         int screenHeight = getmaxy(stdscr) - 1; // save a line for status bar
 
         // try to scroll
@@ -189,11 +198,12 @@ public:
     }
 
     void setCaret() {
-        auto caretPos = document.caretPos();
+        auto caretPos = document.caret();
         move(caretPos.line - scroll, gutterSize + caretPos.chara);
 
     }
     void eatInput(int key) {
+        setStatus("");
         // toggle mode
         if(key == 27) { //ESC
             mode = static_cast<enum editMode>((mode + 1) % 2);
@@ -201,18 +211,21 @@ public:
             return;
         }
 
+        if(key == 410) { // resize
+            return;
+        }
+
         static bool wasJustScrolling = false;
         MEVENT event;
-        if(key == KEY_MOUSE) {
-            if(getmouse(&event) == OK) {
-                if(event.bstate & BUTTON5_PRESSED) {
-                    document.moveCaretDown();
-                    wasJustScrolling = true;
-                }else if(event.bstate & BUTTON4_PRESSED) {
-                    document.moveCaretUp();
-                    wasJustScrolling = true;
-                }
+        if(key == KEY_MOUSE && (getmouse(&event) == OK)) {
+            if(event.bstate & BUTTON5_PRESSED) {
+                document.setCaret({document.line()+1, document.chara()});
+                wasJustScrolling = true;
+            }else if(event.bstate & BUTTON4_PRESSED) {
+                document.setCaret({document.line()-1, document.chara()});
+                wasJustScrolling = true;
             }
+            return;
         }
 
         if(mode == EDIT) {
@@ -223,8 +236,6 @@ public:
                 return;
             }
             command.commandModeCommand(key);
-//            if()
-//                mode = EDIT;
         }
 
     }
