@@ -189,7 +189,7 @@ public:
 
 
     /* Static steppers */
-    Point charOffset(Point start, int offsetChars) {
+    Point charOffset(Point start, int offsetChars) const {
         int sign = signum(offsetChars);
         offsetChars = abs(offsetChars);
 
@@ -228,14 +228,14 @@ public:
             return {start, start};
 
         // each word counts for two changes
-        if(num < 0)
-            num = num * 2 + 0;
-        else
-            num = num * 2 - 1;
+        if(num < 0) num = num * 2 + 1;
+        else        num = num * 2 - 1;
+        if(num < 0 ) start = charOffset(start, -1);
 
         Point end = nextCharChange(start, num);
 
-        if(num < 0) end = stepChar(end, 1).first;
+        // if move left and not analized, bip a lil right
+        if(num < 0 && end != Point::origin) end = stepChar(end, 1).first;
 
         return Range(start, end);
     }
@@ -254,6 +254,35 @@ public:
         return Range(start, {endLine, 0});
     }
 
+    [[nodiscard]]
+    Range paraOffset(Point start, int num) {
+        if(num == 0) return {caret(), caret()};
+
+        auto validLine = [this](int line){return line >= 0 && line < lines.size();};
+        auto isParagraphHead = [this](int line){
+            if(line <= 0) return true;
+            auto currLine = lines.at(line), prevLine = lines.at(line-1);
+            return currLine.find(tab) == 0  // start with tab
+                   || std::all_of(prevLine.begin(), prevLine.end(), isspace) // blank line
+                   || prevLine.empty();}; // blank line
+
+        // find start of current paragraph
+        while(start.line > 0 && !isParagraphHead(start.line))
+            start.line--;
+
+        // loop for num of iterations
+        int i = 0, line = start.line;
+        while(validLine(line) && i < num * signum(num)) {
+            line += signum(num);
+            if (isParagraphHead(line))
+                i++;
+        }
+
+        Point end = {line, 0};
+        dd(end.line);
+
+        return Range(start, end);
+    }
 
     static std::string substring(const std::string &in, size_t start, size_t end) {
         if(start - end == 0)

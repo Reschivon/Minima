@@ -30,6 +30,7 @@ public:
 
     void undoLastAction() {
         if(currentAction <= 0) {
+            dd("Nothing to undo");
             return;
         }
         Action action = actions.at(--currentAction);
@@ -37,8 +38,10 @@ public:
     }
 
     void redoAction() {
-        if(currentAction >= actions.size())
+        if(currentAction >= actions.size()) {
+            dd("At most recent");
             return;
+        }
         Action action = actions.at(currentAction++);
         doAction(action);
     }

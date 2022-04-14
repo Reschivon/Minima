@@ -10,7 +10,18 @@
 
 struct Point {
     int line, chara;
+
+    bool operator==(const Point& rhs) const {
+        return line == rhs.line && chara == rhs.chara;
+    }
+    bool operator!=(const Point& rhs) const {
+        return !(*this == rhs);
+    }
+
+    static Point origin;
 };
+
+Point Point::origin = {0, 0};
 
 class Range final {
 
@@ -38,7 +49,11 @@ public:
     [[nodiscard]] bool isEmpty() const{
         return start.line == end.line && start.chara == end.chara;
     }
+
+    static Range empty;
 };
+
+Range Range::empty = {{0, 0}, {0, 0}};
 
 struct Action {
     enum Type {ADD, DELETE};
@@ -51,5 +66,7 @@ struct Action {
 template <typename T> int signum(T val) {
     return (T(0) < val) - (val < T(0));
 }
+
+std::string tab = "    ";
 
 #endif //MINIMA_STRUCTURE_H

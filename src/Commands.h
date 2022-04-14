@@ -36,9 +36,9 @@ public:
             case LINE:
                 return doc.lineOffset(doc.caret(), sign * getQuantity());
             case PARA:
-                return Range({0,0},{0,0}); // not implemented
+                return doc.paraOffset(doc.caret(), sign * getQuantity()); // not implemented
             default:
-                return Range({0,0},{0,0});
+                return Range::empty;
         }
     }
 };
@@ -94,9 +94,14 @@ class Command {
                     context.unit = CommandContext::PARA;
                     break;
 
-                    // actionable chars
-                case 'd': {// delete
-                    Range toDel = context.getWorkingRange(doc);
+                /* actionable chars */
+                case 'd': {
+                    Range toDel = Range::empty;
+                    if(!doc.getSelection().isEmpty())
+                        // delete selection
+                        toDel = doc.getSelection();
+                    else // delete range from command context
+                        toDel = context.getWorkingRange(doc);
                     doc.deleteRange(toDel);
                     doc.setCaret(toDel.start);
 
@@ -190,6 +195,9 @@ class Command {
             case 'z':
                 history.undoLastAction();
                 break;
+            case 'y':
+                history.redoAction();
+                break;
             default:
                 validCommand = false;
                 break;
@@ -215,7 +223,7 @@ class Command {
             case KEY_STAB:
             case KEY_CATAB:
 //            case 9:
-                doc.insertString("    ");
+                doc.insertString(tab);
                 break;
             default:
                 doc.insertString(std::string(1, char(key)));

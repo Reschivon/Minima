@@ -59,7 +59,7 @@ public:
         int screenHeight = getmaxy(stdscr);
         std::string statusMessage;
         if(mode == COMMAND) {
-            statusMessage += "Command: ";
+            statusMessage += " Command: ";
             statusMessage += command.getCommandChain();
         }
 
