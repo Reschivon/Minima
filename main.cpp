@@ -44,11 +44,14 @@ int main(int argc, char* argv[]) {
     
     while(editor.isOpen()) {
         editor.eatInput(getch());
+        editor.updateSelection();
         editor.setScroll();
         editor.printStatusLine();
         editor.printView();
         editor.setCaret();
     }
+
+    editor.save();
 
     refresh();
     endwin();

@@ -5,6 +5,8 @@
 #ifndef MINIMA_COMMANDS_H
 #define MINIMA_COMMANDS_H
 
+#include <numeric>
+
 struct CommandContext {
 private:
     std::string quantityStr = "";
@@ -39,8 +41,15 @@ public:
     }
 };
 
+struct CopyChunk {
+    std::string start;
+    std::vector<std::string> middle;
+    std::string end;
+};
+
 class Command {
     std::string commandChain;
+    CopyChunk copyBuf;
     Document &document;
     CommandContext context;
 
@@ -50,6 +59,7 @@ class Command {
 
         return tryExecCommandChain();
     }
+
     bool tryExecCommandChain() {
         bool actioned = false;
         context = CommandContext();
@@ -169,13 +179,40 @@ class Command {
             case 'o':
                 document.moveCaret(document.nextWord(document.caretPos()).first);
                 break;
+            case 's':
+                document.toggleSelection();
+                break;
+            case 'c': {
+                auto selection = document.getSelection();
+                if (!selection.isEmpty())
+                    selectionToString(selection, copyBuf);
+                // dd("sel: " + copyBuf.start);
+                break;
+            }
+            case 'x': {
+                auto selection = document.getSelection();
+                if (!selection.isEmpty())
+                    selectionToString(selection, copyBuf);
+                document.deleteRange(selection);
+                break;
+            }
+            case 'v':
+                document.insertWithinLine(copyBuf.start);
+                if(copyBuf.end.empty())
+                    break;
+                document.newLine();
+                for(const std::string &line : copyBuf.middle) {
+                    document.insertWithinLine(line);
+                    document.newLine();
+                }
+                document.insertWithinLine(copyBuf.end);
+                break;
             default:
                 validCommand = false;
                 break;
         }
         return validCommand;
     }
-
 
     void editText(int key) {
         switch (key) {
@@ -210,16 +247,47 @@ class Command {
         return letter;
     }
 
+    static std::string sub(const std::string &in, size_t start, size_t end) {
+        return in.substr(start, end - start);
+    }
+
+    void selectionToString(Range selection, CopyChunk &dest){
+        dest.start.clear();
+        dest.middle.clear();
+        dest.end.clear();
+
+        auto &lines = document.getLines();
+        Point start = selection.start;
+        Point end   = selection.end;
+
+        if(start.line == end.line) {
+            dest.start += sub(lines.at(start.line), start.chara, end.chara);
+            return;
+        }
+        // begin
+        dest.start += sub(lines.at(start.line), start.chara, std::string::npos);
+        // mid
+        for(auto it = lines.begin() + start.line + 1;
+            it < lines.begin() + end.line; it++) {
+            dest.middle.push_back(*it);
+        }
+        // end
+        dest.end += sub(lines.at(end.line), 0, end.chara);
+    }
+
 public:
     explicit Command(Document& doc) : document(doc) {}
 
     void editModeCommand(int key) {
         auto [ctrlPressed, commandStripped]  = controlKey(key);
+        bool validCommand = false;
         if(ctrlPressed) {
-            bool validCommand = immediateCommands(commandStripped);
+            validCommand = immediateCommands(commandStripped);
         } else {
             editText(key);
+            validCommand = true;
         }
+        if(validCommand) document.clearSelection();
     }
 
     bool commandModeCommand(int key) {
@@ -238,6 +306,7 @@ public:
             bool actioned = commandChainAdd(commandStripped);
             if(actioned) {
                 commandChain.clear();
+                document.clearSelection();
                 return true;
             }
         }

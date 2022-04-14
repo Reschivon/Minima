@@ -12,11 +12,11 @@ struct Point {
 class Range final {
 
     static bool goesForward(Point start, Point end) {
-        if (end.line < start.line)
+        if (start.line < end.line)
+            return true;
+        if (start.line > end.line)
             return false;
-        if (end.chara < start.chara)
-            return false;
-        return true;
+        return start.chara < end.chara;
     }
 
     // disable aggregate initialization
@@ -34,6 +34,10 @@ public:
             end = start_;
         }
     }
+
+    [[nodiscard]] bool isEmpty() const{
+        return start.line == end.line && start.chara == end.chara;
+    }
 };
 
 
@@ -41,6 +45,10 @@ class Document {
 private:
     std::vector<std::string> lines;
     int caretChar = 0, caretLine = 0;
+
+    Point selectBegin = {0, 0};
+    Point selectEnd = {0, 0};
+    bool selecting = false;
 
     std::pair<Point, bool> moveLeft(Point curr) {
         bool success = true;
@@ -79,6 +87,36 @@ private:
 
 
 public:
+    void toggleSelection() {
+        if (selecting) {
+            selecting = false;
+        } else {
+            selecting = true;
+            selectBegin = caretPos();
+            selectEnd = caretPos();
+        }
+    }
+
+    void clearSelection() {
+        selectBegin = {0, 0};
+        selectEnd =  {0, 0};
+        selecting = false;
+    }
+
+    Range getSelection() {
+        return Range(selectBegin, selectEnd);
+    }
+    bool isSelection() const {
+        return selecting;
+    }
+    void updateSelection() {
+        if(selecting) {
+//            if(caretChar == lines.at(caretLine).size())
+//                selectEnd = {caretLine + 1, 0};
+//            else
+                selectEnd = caretPos();
+        }
+    }
     void addLine(const std::string& line) {
         lines.push_back(line);
     }
@@ -204,7 +242,7 @@ public:
                                (int) lines.at(caretLine).length());
     }
 
-    std::vector<std::string> &getLines() {
+    const std::vector<std::string> &getLines() {
         return lines;
     }
 

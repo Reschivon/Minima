@@ -1,36 +1,38 @@
-Minima Text Editor
+# Minima Text Editor
 
-Two modes: Command and edit. User Esc to toggle between them
+Two modes: Command and edit. Use Esc to toggle between them
 
-Command Mode:
+## Command Mode:
 A command has the format [quantity][unit][action]
-To delete the next 3 words, do 3wd
-To delete the previous line, do -1rd
+To delete the next 3 words, do `3wd`
+To delete the previous row, do `-1rd`
 
-    Quantities:
-    All integers, positive and negative
+## Quantities:
+All integers, positive and negative
 
-    Units:
-    c: character
-    w: word
-    r: row
-    l: line
-    p: paragraph
+### Units:
+- c: character
+- w: word
+- r: row
+- l: line
+- p: paragraph
 
-    Actions:
-    d: delete
-    g: go
-    q: quit (no arguments)
+#### Actions:
+- d: delete
+- g: go
+- q: quit (no arguments)
 
-    You do not always need to specify [quantity] and [unit]
-    [quantity] defaults to 1, and [unit] defaults to word
+You do not always need to specify both `quantity` and `unit`
 
+`quantity` defaults to 1, and `unit` defaults to word
 
-Edit Mode:
+(Bonus: the negative sign evaluates to -1)
+
+## Edit Mode:
 Type to insert text
 
 
-Navigation:
+## Navigation:
 
 In command mode, use I,J,K,L to move cursor in single character/line increments,
 and use U,O to move in Word increments, and H,N to move to start and end of line.

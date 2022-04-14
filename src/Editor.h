@@ -17,6 +17,8 @@
 
 class Editor {
 private:
+    std::string filename;
+
     Document document;
     Command command;
     bool open = true;
@@ -27,7 +29,7 @@ private:
     enum editMode {EDIT=0, COMMAND=1};
     editMode mode = COMMAND;
 public:
-    explicit Editor(const std::string& filename) : command(document){
+    explicit Editor(const std::string& filename) : command(document), filename(filename){
 
         std::ifstream infile(filename.c_str());
         if(infile.is_open()) {
@@ -54,13 +56,15 @@ public:
 
         // command bar
         if(mode == COMMAND) attron(COLOR_PAIR(1));
-        mvprintw(screenHeight - 1, 0, (statusMessage + getStatus()).c_str());
+        mvprintw(screenHeight - 1, 0, (statusMessage + getStatus() + " ").c_str());
         clrtoeol();
         if(mode == COMMAND) attroff(COLOR_PAIR(1));
 
         // line stats
         auto[line, chara] = document.caretPos();
-        std::string lineStats = std::to_string(line) + ":" + std::to_string(chara);
+        std::string lineStats;
+        lineStats += (document.isSelection() ? "select    " : "");
+        lineStats += std::to_string(line) + ":" + std::to_string(chara);
         int screenWidth = getmaxx(stdscr);
         mvprintw(screenHeight - 1, screenWidth - (int)lineStats.size() - 3, lineStats.c_str());
     }
@@ -69,7 +73,18 @@ public:
         return s.insert(0, width - s.length(), ' ');
     }
 
+    void updateSelection() {
+        document.updateSelection();
+        auto sel = document.getSelection();
+    }
+
+    std::string sub(const std::string &in, int start, int end) {
+        return in.substr(start, end - start);
+    }
+
     void printView() {
+        Range selection = document.getSelection();
+
         int screenHeight = getmaxy(stdscr) - 1; // save a line for status bar
         auto &lines = document.getLines();
 
@@ -77,14 +92,60 @@ public:
         for(; documentLine < lines.size() && screenLine < screenHeight;
               documentLine++, screenLine++) {
 
+            // line number
             attron(COLOR_PAIR(2));
             std::string row = padLeft(std::to_string(documentLine), (int)ceil(std::log10(lines.size())));
             row += " ";
             mvprintw(screenLine, 0, row.c_str());
             attroff(COLOR_PAIR(2));
 
+            // actual text
             gutterSize = (int)row.size();
-            mvprintw(screenLine, gutterSize, lines.at(documentLine).c_str());
+            std::string fulltext = lines.at(documentLine);
+
+            // at selection start or end
+            if(selection.start.line == selection.end.line) {
+                if (documentLine == selection.start.line) {
+                    std::string first = sub(fulltext, 0, selection.start.chara);
+                    std::string second = sub(fulltext, selection.start.chara, selection.end.chara);
+                    std::string third = sub(fulltext, selection.end.chara, fulltext.size());
+                    mvprintw(screenLine, gutterSize, first.c_str());
+                    attron(A_REVERSE);
+                    mvprintw(screenLine, gutterSize + first.size(), second.c_str());
+                    attroff(A_REVERSE);
+                    mvprintw(screenLine, gutterSize + first.size() + second.size(), third.c_str());
+                } else {
+                    mvprintw(screenLine, gutterSize, fulltext.c_str());
+                }
+            }
+            // highlight for second part
+            else if (documentLine == selection.start.line) {
+                std::string first = sub(fulltext, 0, selection.start.chara);
+                std::string second = sub(fulltext, selection.start.chara, fulltext.size());
+                mvprintw(screenLine, gutterSize, first.c_str());
+                attron(A_REVERSE);
+                mvprintw(screenLine, gutterSize + first.size(), second.c_str());
+                attroff(A_REVERSE);
+            }
+            // highlight for first part
+            else if(documentLine == selection.end.line) {
+                std::string first = sub(fulltext, 0, selection.end.chara);
+                std::string second = sub(fulltext, selection.end.chara, fulltext.size());
+                attron(A_REVERSE);
+                mvprintw(screenLine, gutterSize, first.c_str());
+                attroff(A_REVERSE);
+                mvprintw(screenLine, gutterSize + first.size(), second.c_str());
+            }
+            // highlight whole thing
+            else if(selection.start.line < documentLine && documentLine < selection.end.line) {
+                attron(A_REVERSE);
+                mvprintw(screenLine, gutterSize, fulltext.c_str());
+                attroff(A_REVERSE);
+            }
+            // highlight nothing
+            else {
+                mvprintw(screenLine, gutterSize, fulltext.c_str());
+            }
 
             clrtoeol();
         }
@@ -112,6 +173,7 @@ public:
         if (caretScreenLine > largerMargin)
             scrollBy(caretScreenLine - largerMargin);
     }
+
     void scrollBy(int delta) {
         int screenHeight = getmaxy(stdscr) - 1; // save a line for status bar
 
@@ -132,6 +194,7 @@ public:
 
     }
     void eatInput(int key) {
+        // toggle mode
         if(key == 27) { //ESC
             mode = static_cast<enum editMode>((mode + 1) % 2);
             command.clearCommands();
@@ -163,11 +226,30 @@ public:
 //            if()
 //                mode = EDIT;
         }
+
     }
 
     [[nodiscard]] bool isOpen() const {
         return open;
     }
+
+    void save() {
+        // get text with newlines
+        auto &lines = document.getLines();
+        std::string fullText;
+        for(const auto& line : lines) {
+            fullText += line;
+            fullText += '\n';
+        }
+        // remove last newline
+        fullText.pop_back();
+
+        std::ofstream out;
+        out.open(filename);
+        out << fullText;
+        out.close();
+    }
+
 };
 
 #endif //MINIMA_EDITOR_H
