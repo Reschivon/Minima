@@ -117,6 +117,17 @@ public:
                 selectEnd = caretPos();
         }
     }
+    void validifyRange(Range &check) {
+        if(check.start.line >= lines.size())
+            check.start.line = (int) lines.size() - 1;
+        if(check.end.line >= lines.size())
+            check.end.line = (int)lines.size() - 1;
+        if(check.start.chara > lines.at(check.start.line).size())
+            check.start.chara = (int)lines.at(check.start.line).size();
+        if(check.end.chara > lines.at(check.end.line).size())
+            check.end.chara = (int) lines.at(check.end.line).size();
+    }
+
     void addLine(const std::string& line) {
         lines.push_back(line);
     }

@@ -186,7 +186,6 @@ class Command {
                 auto selection = document.getSelection();
                 if (!selection.isEmpty())
                     selectionToString(selection, copyBuf);
-                // dd("sel: " + copyBuf.start);
                 break;
             }
             case 'x': {
@@ -198,9 +197,8 @@ class Command {
             }
             case 'v':
                 document.insertWithinLine(copyBuf.start);
-                if(copyBuf.end.empty())
-                    break;
-                document.newLine();
+                if(!copyBuf.middle.empty())
+                    document.newLine();
                 for(const std::string &line : copyBuf.middle) {
                     document.insertWithinLine(line);
                     document.newLine();
@@ -256,6 +254,8 @@ class Command {
         dest.middle.clear();
         dest.end.clear();
 
+        document.validifyRange(selection);
+
         auto &lines = document.getLines();
         Point start = selection.start;
         Point end   = selection.end;
@@ -306,7 +306,6 @@ public:
             bool actioned = commandChainAdd(commandStripped);
             if(actioned) {
                 commandChain.clear();
-                document.clearSelection();
                 return true;
             }
         }
