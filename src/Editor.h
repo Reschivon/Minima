@@ -231,6 +231,7 @@ public:
             command.editModeCommand(key);
         }else if(mode == COMMAND) {
             if(key == 'q' || key == 'Q') {
+                save();
                 open = false;
                 return;
             }

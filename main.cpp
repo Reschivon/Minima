@@ -56,8 +56,6 @@ int main(int argc, char* argv[]) {
         editor->setCaret();
     }
 
-    editor->save();
-
     free(editor);
 
     refresh();
