@@ -260,7 +260,7 @@ public:
 
         auto validLine = [this](int line){return line >= 0 && line < lines.size();};
         auto isParagraphHead = [this](int line){
-            if(line <= 0) return true;
+            if(line <= 0 || line >= lines.size()) return true;
             auto currLine = lines.at(line), prevLine = lines.at(line-1);
             return currLine.find(tab) == 0  // start with tab
                    || std::all_of(prevLine.begin(), prevLine.end(), isspace) // blank line
@@ -277,6 +277,8 @@ public:
             if (isParagraphHead(line))
                 i++;
         }
+
+        line = std::clamp(line, 0, (int)lines.size()-1);
 
         Point end = {line, 0};
 
