@@ -44,6 +44,7 @@ public:
 };
 
 class Command {
+    std::string prevCommandChain;
     std::string commandChain;
     std::string copyBuf;
     Document &doc;
@@ -123,6 +124,12 @@ class Command {
                 }
                 case 'n': {
                     doc.setCaret(doc.lineEnd(doc.caret()));
+                    actioned = true;
+                    break;
+                }
+                case 'a': {
+                    commandChain = prevCommandChain;
+                    tryExecCommandChain();
                     actioned = true;
                     break;
                 }
@@ -269,6 +276,7 @@ public:
         if(!validCommand) {
             bool actioned = commandChainAdd(commandStripped);
             if(actioned) {
+                prevCommandChain = commandChain;
                 commandChain.clear();
                 return true;
             }

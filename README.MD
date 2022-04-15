@@ -38,8 +38,9 @@ All integers, positive and negative
 
 #### Actions:
 - d: delete
-- g: go
-- q: quit and save (no arguments)
+- g: goto
+- q: quit and save
+- a: perform last command again
 
 You do not always need to specify both `quantity` and `unit`
 
