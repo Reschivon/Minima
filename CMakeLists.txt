@@ -1,8 +1,10 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.18)
 project(Minima)
 
 find_package(Curses REQUIRED)
 include_directories(${CURSES_INCLUDE_DIR})
+
+#add_subdirectory(${PROJECT_SOURCE_DIR}/clang-highlight)
 
 include_directories("./src")
 set(CMAKE_CXX_STANDARD 17)

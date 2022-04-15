@@ -1,9 +1,7 @@
 #include <iostream>
 #include <ncurses.h>
-#include <Print.h>
-#include <Editor.h>
-
-#include <signal.h>
+#include "Print.h"
+#include "Editor.h"
 
 Editor *editor;
 
@@ -38,6 +36,8 @@ int main(int argc, char* argv[]) {
     }
 
     editor = new Editor(filename);
+    if(!editor->isOpen())
+        return 1;
 
     curses_init();
 

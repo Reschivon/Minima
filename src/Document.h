@@ -279,7 +279,6 @@ public:
         }
 
         Point end = {line, 0};
-        dd(end.line);
 
         return Range(start, end);
     }
