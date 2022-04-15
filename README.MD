@@ -45,7 +45,8 @@ You do not always need to specify both `quantity` and `unit`
 
 `quantity` defaults to 1, and `unit` defaults to word
 
-(Bonus: the negative sign evaluates to -1)
+The negative sign evaluates to -1. `-pg` brings the cursor to previous paragraph
+You can also type `b` to flip the direction
 
 ## Edit Mode:
 Type to insert text

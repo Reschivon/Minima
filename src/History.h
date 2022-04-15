@@ -49,23 +49,33 @@ public:
 private:
     void undoAction(const Action& action) {
         freezeHist = true;
+        Point origCaret = document.caret();
+
         if(action.type == Action::DELETE) {
+            document.setCaret(action.range.start);
             document.insertString(action.heft);
         }
         if(action.type == Action::ADD) {
             document.deleteRange(action.range);
         }
+
+        document.setCaret(origCaret);
         freezeHist = false;
     }
 
     void doAction(const Action& action) {
         freezeHist = true;
+        Point origCaret = document.caret();
+
         if(action.type == Action::DELETE) {
             document.deleteRange(action.range);
         }
         if(action.type == Action::ADD) {
+            document.setCaret(action.range.start);
             document.insertString(action.heft);
         }
+
+        document.setCaret(origCaret);
         freezeHist = false;
     }
 
