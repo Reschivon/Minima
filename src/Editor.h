@@ -48,7 +48,6 @@ public:
             document.setLines(std::move(allLines));
         } else {
             open = false;
-            println("File can't be opened");
         }
         infile.close();
 

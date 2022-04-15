@@ -36,8 +36,10 @@ int main(int argc, char* argv[]) {
     }
 
     editor = new Editor(filename);
-    if(!editor->isOpen())
+    if(!editor->isOpen()) {
+        println("File can't be opened\n");
         return 1;
+    }
 
     curses_init();
 

@@ -20,7 +20,7 @@ All integers, positive and negative
 #### Actions:
 - d: delete
 - g: go
-- q: quit (no arguments)
+- q: quit and save (no arguments)
 
 You do not always need to specify both `quantity` and `unit`
 
@@ -32,11 +32,13 @@ You do not always need to specify both `quantity` and `unit`
 Type to insert text
 
 
-## Navigation:
+## Global Commands:
+Global commands are single key shortcuts that can be used in edit mode 
+by holding ctrl, and in command mode.
 
-In command mode, use I,J,K,L to move cursor in single character/line increments,
-and use U,O to move in Word increments, and H,N to move to start and end of line.
+Use I,J,K,L to move cursor in single character/line increments.
+Use U,O to move in Word increments, and H,N to move to start and end of line.
 
-You can do the same in edit mode with Ctrl held down.
+Use Z to undo, and Y to redo (this was very hard to code in a clean way)
 
 Also on supported terminals, you can scroll with the mouse wheel.
