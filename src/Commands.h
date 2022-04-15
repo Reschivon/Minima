@@ -64,6 +64,7 @@ class Command {
             switch (key) {
                 // context chars
                 case '-':
+                case 'b':
                     context.sign = -1;
                     break;
 
