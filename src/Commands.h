@@ -107,6 +107,7 @@ class Command {
                     doc.deleteRange(toDel);
                     doc.setCaret(toDel.start);
 
+                    doc.stopSelection();
                     actioned = true;
                     break;
                 }
@@ -160,8 +161,26 @@ class Command {
         return {hasControl, nakedChar};
     }
 
+    bool wasJustShiftin = false;
     bool immediateCommands(int rawKey) {
         bool validCommand = true;
+        switch (char(rawKey)) {
+            case 'I':
+            case 'J':
+            case 'K':
+            case 'L':
+            case 'U':
+            case 'O':
+                if(!doc.isSelecting())
+                    doc.startSelection();
+                wasJustShiftin = true;
+                break;
+            default:
+                if(wasJustShiftin)
+                    doc.stopSelection();
+                wasJustShiftin = false;
+                break;
+        }
         switch (char(letterLowerCase(rawKey))) {
             case 'j':
                 doc.setCaret(doc.charOffset(doc.caret(), -1));
@@ -217,6 +236,7 @@ class Command {
         switch (key) {
             case KEY_BACKSPACE:
                 doc.deleteRange({doc.caret(), doc.charOffset(doc.caret(), -1)});
+                doc.stopSelection();
                 break;
             case KEY_DC:
                 doc.deleteRange({doc.caret(), doc.charOffset(doc.caret(), 1)});

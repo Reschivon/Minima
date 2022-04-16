@@ -12,7 +12,7 @@
 
 class Document {
 private:
-    std::vector<std::string> lines;
+    std::vector<std::string> lines{};
     int caretChar = 0, caretLine = 0;
 
     Point selectBegin = {0, 0};
@@ -97,15 +97,17 @@ public:
     std::function<void(Action)> updateHistory{};
 
     /* Related to Highlighting */
-
+    void stopSelection() {
+        selecting = false;
+    }
+    void startSelection() {
+        selecting = true;
+        selectBegin = caret();
+        selectEnd = caret();
+    }
     void toggleSelection() {
-        if (selecting) {
-            selecting = false;
-        } else {
-            selecting = true;
-            selectBegin = caret();
-            selectEnd = caret();
-        }
+        if (selecting) stopSelection();
+        else           startSelection();
     }
 
     Range getSelection() {
@@ -124,14 +126,11 @@ public:
     }
 
     void validifyRange(Range &check) {
-        if(check.start.line >= lines.size())
-            check.start.line = (int) lines.size() - 1;
-        if(check.end.line >= lines.size())
-            check.end.line = (int)lines.size() - 1;
-        if(check.start.chara > lines.at(check.start.line).size())
-            check.start.chara = (int)lines.at(check.start.line).size();
-        if(check.end.chara > lines.at(check.end.line).size())
-            check.end.chara = (int) lines.at(check.end.line).size();
+        check.start.line = std::clamp(check.start.line, 0, (int) lines.size() - 1);
+        check.end.line = std::clamp(check.end.line, 0, (int) lines.size() - 1);
+
+        check.start.chara = std::clamp(check.start.chara, 0, (int)lines.at(check.start.line).size());
+        check.end.chara = std::clamp(check.end.chara, 0, (int)lines.at(check.end.line).size());
     }
 
     /* Loose utils */
@@ -169,7 +168,7 @@ public:
     [[nodiscard]]
     char charAt(Point p) const {
         if(lines.at(p.line).length() == p.chara) {
-            return ' ';
+            return '\n';
         }
 
         return lines.at(p.line).at(p.chara);
@@ -189,6 +188,7 @@ public:
 
 
     /* Static steppers */
+    [[nodiscard]]
     Point charOffset(Point start, int offsetChars) const {
         int sign = signum(offsetChars);
         offsetChars = abs(offsetChars);
@@ -237,7 +237,7 @@ public:
         // if move left and not analized, bip a lil right
         if(num < 0 && end != Point::origin) end = stepChar(end, 1).first;
 
-        return Range(start, end);
+        return {start, end};
     }
 
     [[nodiscard]]
@@ -282,7 +282,7 @@ public:
 
         Point end = {line, 0};
 
-        return Range(start, end);
+        return {start, end};
     }
 
     static std::string substring(const std::string &in, size_t start, size_t end) {
@@ -296,6 +296,8 @@ public:
 
     /* Bad boy general insert and delete */
     void deleteRange(Range toDelete) {
+        validifyRange(toDelete);
+
         if(toDelete.start.line == toDelete.end.line) {
             auto &startLine = lines.at(toDelete.start.line);
             eraseString(startLine, toDelete.start.chara, toDelete.end.chara);
