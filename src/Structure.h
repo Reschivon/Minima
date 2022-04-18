@@ -62,6 +62,9 @@ struct Action {
     Range range;
 };
 
+enum EditMode {EDIT=0, COMMAND=1};
+enum REQUESTED_ACTION {SAVE, TOEDIT, TOCMD, NOTHING};
+
 // Shamelessly ripped from SO
 template <typename T> int signum(T val) {
     return (T(0) < val) - (val < T(0));

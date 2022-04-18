@@ -116,6 +116,13 @@ public:
         return sel;
     }
 
+    void setSelection(Range r) {
+        validifyRange(r);
+        selecting = false;
+        selectBegin = r.start;
+        selectEnd = r.end;
+    }
+
     [[nodiscard]] bool isSelecting() const {
         return selecting;
     }
@@ -385,6 +392,30 @@ public:
         text += substring(lines.at(end.line), 0, end.chara);
 
         return text;
+    }
+
+    std::pair<Range, bool> search(Point begin, const std::string &toFind, int direction) {
+        while(true) {
+            Point wordSearch = begin;
+            bool success;
+            for(int letter = 0; letter < toFind.size(); letter++) {
+                if (charAt(wordSearch) != toFind.at(letter))
+                    break; // current position yielded no results
+
+                if(letter == toFind.size() - 1) // all matched
+                    return {wordOffset(begin, 1), true};
+
+                // try to advance letter
+                std::tie(wordSearch, success) = stepChar(wordSearch, 1);
+                if(!success) // end of file
+                    return {{wordSearch, wordSearch}, false};
+            }
+
+            // try advance next position
+            std::tie(begin, success) = stepChar(begin, direction);
+            if(!success)
+                return {{begin, begin}, false};
+        }
     }
 };
 

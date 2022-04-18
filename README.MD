@@ -62,4 +62,6 @@ Use `U`,`O` to move in word increments, and `H`,`N` to move to start and end of 
 
 Use `Z` to undo, and `Y` to redo (this was very hard to code in a clean way)
 
+Tap `S` to toggle selection, can also hold `<shift>`
+
 Also on supported terminals, you can scroll with the mouse wheel.

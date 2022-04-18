@@ -30,8 +30,7 @@ private:
     int scroll = 0;
     int gutterSize = 0;
 
-    enum editMode {EDIT=0, COMMAND=1};
-    editMode mode = COMMAND;
+    EditMode mode = COMMAND;
 public:
     explicit Editor(const std::string& filename)
                 : filename(filename), history(document), command(document, history){
@@ -203,45 +202,22 @@ public:
     }
     void eatInput(int key) {
         setStatus("");
-        // toggle mode
-        if(key == 27) { //ESC
-            mode = static_cast<enum editMode>((mode + 1) % 2);
-            command.clearCommands();
-            return;
-        }
 
-        if(key == 410) { // resize
-            return;
-        }
-
-        static bool wasJustScrolling = false;
-        MEVENT event;
-        if(key == KEY_MOUSE && (getmouse(&event) == OK)) {
-            if(event.bstate & BUTTON5_PRESSED) {
-                document.setCaret({document.line()+1, document.chara()});
-                wasJustScrolling = true;
-            }else if(event.bstate & BUTTON4_PRESSED) {
-                document.setCaret({document.line()-1, document.chara()});
-                wasJustScrolling = true;
-            }
-            return;
-        }
-
-        if(mode == EDIT) {
-            command.editModeCommand(key);
-        }else if(mode == COMMAND) {
-            if(key == 'q' || key == 'Q') {
-                save();
-                open = false;
-                return;
-            }
-            command.commandModeCommand(key);
-        }
-
+        REQUESTED_ACTION req = command.eatKey(key, mode);
+        if(req == TOCMD)
+            mode = COMMAND;
+        if(req == TOEDIT)
+            mode = EDIT;
+        if(req == SAVE)
+            save();
     }
 
-    [[nodiscard]] bool isOpen() const {
+    [[nodiscard]]
+    bool isOpen() const {
         return open;
+    }
+    void close() {
+        open = false;
     }
 
     void save() {

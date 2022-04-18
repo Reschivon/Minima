@@ -16,6 +16,7 @@ public:
     int sign = 1;
     enum UNIT {CHAR, WORD, LINE, PARA};
     UNIT unit = WORD;
+    std::string literalString;
 
     void appendQuantityDigit(char d) {
         quantityStr += d;
@@ -44,24 +45,135 @@ public:
 };
 
 class Command {
-    std::string prevCommandChain;
-    std::string commandChain;
-    std::string copyBuf;
     Document &doc;
     CommandContext context;
     History &history;
 
-    bool commandChainAdd(char key) {
-        key = letterLowerCase(key);
-        commandChain += key;
+    std::string prevCommandChain;
+    std::string commandChain;
 
-        return tryExecCommandChain();
+    std::string copyBuf;
+
+    // state
+    bool typingString = false;
+
+
+
+public:
+    explicit Command(Document& doc, History &history) : doc(doc), history(history) {}
+
+
+    REQUESTED_ACTION eatKey(int key, EditMode mode) {
+
+        // toggle mode
+        if(key == 27) { //ESC
+            mode = static_cast<enum EditMode>((mode + 1) % 2);
+            clearCommands();
+            return mode == EDIT ? TOEDIT : TOCMD;
+        }
+
+        if(key == 410) { // ignore resize
+            goto end;
+        }
+
+        static bool wasJustScrolling = false;
+        MEVENT event;
+        if(key == KEY_MOUSE && (getmouse(&event) == OK)) {
+            if(event.bstate & BUTTON5_PRESSED) {
+                doc.setCaret({doc.line()+1, doc.chara()});
+                wasJustScrolling = true;
+            }else if(event.bstate & BUTTON4_PRESSED) {
+                doc.setCaret({doc.line()-1, doc.chara()});
+                wasJustScrolling = true;
+            }
+            goto end;
+        }
+
+        if(mode == EDIT) {
+            editModeCommand(key);
+        }else if(mode == COMMAND) {
+            if(key == 'q' || key == 'Q')
+                return SAVE;
+            commandModeCommand(key);
+        }
+
+        // valid use of goto, shut up
+        end:
+        return NOTHING;
+    }
+
+
+    void editModeCommand(int key) {
+        auto [ctrlPressed, commandStripped] = controlKey(key);
+        bool validCommand = false;
+        if(ctrlPressed) {
+            validCommand = immediateCommands(commandStripped);
+        } else {
+            editText(key);
+            validCommand = true;
+        }
+    }
+
+    bool commandModeCommand(int key) {
+        bool commandExecuted = false;
+        if(key == KEY_BACKSPACE) {
+            backspace();
+            return false;
+        }
+
+        auto [ctrlPressed, commandStripped] = controlKey(key);
+
+        if(typingString) {
+            return commandChainAdd(commandStripped);
+        }
+
+        if(immediateCommands(commandStripped))
+            return true;
+        else
+            return commandChainAdd(commandStripped);
+    }
+
+    bool commandChainAdd(char key) {
+        commandChain += letterLowerCase(key);
+
+        bool actioned = tryExecCommandChain();
+        if(actioned) {
+            prevCommandChain = commandChain;
+            commandChain.clear();
+        }
+        return actioned;
     }
 
     bool tryExecCommandChain() {
         bool actioned = false;
         context = CommandContext();
+
+        bool escaped = false;
         for(char key : commandChain) {
+            if(key == '\\') {
+                typingString = true;
+                continue;
+            }
+
+            if(typingString) {
+                char letter = char(key);
+                if(letter == ' ') {
+                    typingString = false;
+                    continue;
+                }
+                if(letter == '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if(escaped && key == 'n') {
+                    context.literalString += '\n';
+                    escaped = false;
+                } else {
+                    context.literalString += letter;
+                }
+                continue;
+            }
+
             switch (key) {
                 // context chars
                 case '-':
@@ -134,6 +246,21 @@ class Command {
                     actioned = true;
                     break;
                 }
+                case 'f': {
+                    if(context.literalString.empty()) {
+                        dd("search string is empty");
+                        break;
+                    }
+                    auto search = doc.search(doc.charOffset(doc.caret(), 1), context.literalString, context.sign);
+                    if(!search.second)
+                        dd("Reached end of file");
+                    else {
+                        doc.setSelection(search.first);
+                        doc.setCaret(search.first.start);
+                    }
+                    actioned = true;
+                    break;
+                }
 
                 default:
                     break;
@@ -165,6 +292,7 @@ class Command {
     bool immediateCommands(int rawKey) {
         bool validCommand = true;
         switch (char(rawKey)) {
+            // if ctrl or shift held
             case 'I':
             case 'J':
             case 'K':
@@ -264,44 +392,6 @@ class Command {
             return letter + 32;
         }
         return letter;
-    }
-
-
-public:
-    explicit Command(Document& doc, History &history) : doc(doc), history(history) {}
-
-    void editModeCommand(int key) {
-        auto [ctrlPressed, commandStripped] = controlKey(key);
-        bool validCommand = false;
-        if(ctrlPressed) {
-            validCommand = immediateCommands(commandStripped);
-        } else {
-            editText(key);
-            validCommand = true;
-        }
-    }
-
-    bool commandModeCommand(int key) {
-        bool commandExecuted = false;
-        if(key == KEY_BACKSPACE) {
-            backspace();
-            return false;
-        }
-        auto [ctrlPressed, commandStripped] = controlKey(key);
-
-        // if(letterLowerCase(commandStripped) == 'y') return false;
-        // if(letterLowerCase(commandStripped) == 'z') return false;
-
-        bool validCommand = immediateCommands(commandStripped);
-        if(!validCommand) {
-            bool actioned = commandChainAdd(commandStripped);
-            if(actioned) {
-                prevCommandChain = commandChain;
-                commandChain.clear();
-                return true;
-            }
-        }
-        return false;
     }
 
 
