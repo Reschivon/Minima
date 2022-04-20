@@ -23,9 +23,11 @@ public:
     void addAction(Action act) {
         if(freezeHist)
             return;
+
+        actions.erase(actions.begin() + currentAction, actions.end());
+
         actions.push_back(act);
         currentAction++;
-        actions.erase(actions.begin() + currentAction, actions.end());
     }
 
     void undoLastAction() {

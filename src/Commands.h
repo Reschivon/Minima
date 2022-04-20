@@ -30,8 +30,8 @@ public:
     Range getWorkingRange(Document &doc) {
         switch(unit) {
             case CHAR:
-                return Range(doc.caret(),
-                             doc.charOffset(doc.caret(), sign * getQuantity()));
+                return {doc.caret(),
+                        doc.charOffset(doc.caret(), sign * getQuantity())};
             case WORD:
                 return doc.wordOffset(doc.caret(), sign * getQuantity());
             case LINE:
@@ -217,9 +217,7 @@ public:
                     else // delete range from command context
                         toDel = context.getWorkingRange(doc);
                     doc.deleteRange(toDel);
-                    doc.setCaret(toDel.start);
-
-                    doc.stopSelection();
+                    doc.setSelection(Range::empty);
                     actioned = true;
                     break;
                 }

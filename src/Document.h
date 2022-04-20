@@ -305,6 +305,8 @@ public:
     void deleteRange(Range toDelete) {
         validifyRange(toDelete);
 
+        std::string stringToDelete = selectionToString(toDelete);
+
         if(toDelete.start.line == toDelete.end.line) {
             auto &startLine = lines.at(toDelete.start.line);
             eraseString(startLine, toDelete.start.chara, toDelete.end.chara);
@@ -312,14 +314,12 @@ public:
 
             updateHistory({
                   Action::DELETE,
-                  selectionToString(toDelete),
+                  stringToDelete,
                   toDelete
                   });
 
             return;
         }
-
-        std::string stringToDelete = selectionToString(toDelete);
 
         // Merge lines whose linebreak has been deleted
         auto &startLine = lines.at(toDelete.start.line);
