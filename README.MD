@@ -41,6 +41,8 @@ All integers, positive and negative
 - g: goto
 - q: quit and save
 - a: perform last command again
+- f: find 
+- s: select range
 
 You do not always need to specify both `quantity` and `unit`
 
@@ -48,6 +50,13 @@ You do not always need to specify both `quantity` and `unit`
 
 The negative sign evaluates to -1. `-pg` brings the cursor to previous paragraph
 You can also type `b` to flip the direction
+
+To find a string, begin with `'` and type the string you want to find. 
+Use `\` to type space and newline literals. Press `a` to find the same
+string again.
+
+Select can also be used as `ctrl + s` in edit mode, but in command
+mode, it also takes parameters.
 
 ## Edit Mode:
 Type to insert text
