@@ -329,7 +329,14 @@ public:
                 doc.setCaret(doc.wordOffset(doc.caret(), 1).end);
                 break;
             case 's':
-                doc.toggleSelection();
+                if(!commandChain.empty() && !doc.isSelecting()) {
+                    doc.startSelection();
+                    Range range = context.getWorkingRange(doc);
+                    Point dest = context.sign < 0 ? range.start : range.end;
+                    doc.setCaret(dest);
+                } else {
+                    doc.toggleSelection();
+                }
                 break;
             case 'c': {
                 auto selection = doc.getSelection();

@@ -403,7 +403,7 @@ public:
                     break; // current position yielded no results
 
                 if(letter == toFind.size() - 1) // all matched
-                    return {wordOffset(begin, 1), true};
+                    return {{begin, charOffset(begin, toFind.size())}, true};
 
                 // try to advance letter
                 std::tie(wordSearch, success) = stepChar(wordSearch, 1);
