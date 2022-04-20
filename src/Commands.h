@@ -309,7 +309,7 @@ public:
                 wasJustShiftin = false;
                 break;
         }
-        dd(">" + std::string(1, char(letterLowerCase(strippedKey))));
+
         switch (char(letterLowerCase(strippedKey))) {
             case 'j':
                 doc.setCaret(doc.charOffset(doc.caret(), -1));
