@@ -106,6 +106,11 @@ public:
             mvprintw(screenLine, 0, row.c_str());
             attroff(COLOR_PAIR(2));
 
+            if(document.line() == documentLine)
+                attron(COLOR_PAIR(3));
+            else
+                attron(COLOR_PAIR(0));
+
             // actual text
             gutterSize = (int)row.size();
             std::string fulltext = lines.at(documentLine);
@@ -154,7 +159,10 @@ public:
                 mvprintw(screenLine, gutterSize, fulltext.c_str());
             }
 
-            clrtoeol();
+            int screenWidth = getmaxx(stdscr);
+            int currX = gutterSize + fulltext.size();
+            mvprintw(screenLine, currX, std::string(screenWidth - currX, ' ').c_str());
+            // clrtoeol();
         }
 
         for(; screenLine < screenHeight; screenLine++) {
@@ -208,8 +216,10 @@ public:
             mode = COMMAND;
         if(req == TOEDIT)
             mode = EDIT;
-        if(req == SAVE)
+        if(req == SAVE) {
             save();
+            open = false;
+        }
     }
 
     [[nodiscard]]
