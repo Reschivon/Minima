@@ -157,19 +157,27 @@ public:
 
             if(typingString) {
                 char letter = char(key);
-                if(letter == ' ') {
-                    typingString = false;
-                    continue;
-                }
-                if(letter == '\\') {
-                    escaped = true;
-                    continue;
-                }
-                if(escaped && key == 'n') {
-                    context.literalString += '\n';
-                    escaped = false;
+
+                if(escaped) {
+                    if(key == 'n') {
+                        context.literalString += '\n';
+                        escaped = false;
+                    } else if(key == ' ') {
+                        context.literalString += ' ';
+                        escaped = false;
+                    }
                 } else {
-                    context.literalString += letter;
+                    if(letter == ' ') {
+                        typingString = false;
+                        continue;
+                    }
+                    else if(letter == '\\') {
+                        escaped = true;
+                        continue;
+                    }
+                    else {
+                        context.literalString += letter;
+                    }
                 }
                 continue;
             }
