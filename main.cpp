@@ -21,10 +21,11 @@ void curses_init()
     //BUTTON2_PRESSED | BUTTON3_PRESSED
     mousemask(ALL_MOUSE_EVENTS, nullptr);
 
-    init_pair(1, COLOR_WHITE, COLOR_BLUE);
-    // init_color(COLOR_YELLOW, 900, 680, 80);
+    init_pair(1, COLOR_WHITE, COLOR_BLUE); // command bar colors
     init_color(COLOR_YELLOW, 580, 500, 450);
-    init_pair(2, COLOR_YELLOW, -1);
+    init_pair(2, COLOR_YELLOW, -1); // line number colors
+    init_color(COLOR_BLACK, 100, 100, 100);
+    init_pair(3, -1, COLOR_BLACK); // line number colors
 }
 
 int main(int argc, char* argv[]) {
