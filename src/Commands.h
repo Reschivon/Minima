@@ -107,7 +107,7 @@ public:
         auto [ctrlPressed, commandStripped] = controlKey(key);
         bool validCommand = false;
         if(ctrlPressed) {
-            validCommand = immediateCommands(commandStripped);
+            validCommand = immediateCommands(commandStripped, key);
         } else {
             editText(key);
             validCommand = true;
@@ -127,7 +127,7 @@ public:
             return commandChainAdd(commandStripped);
         }
 
-        if(immediateCommands(commandStripped))
+        if(immediateCommands(commandStripped, key))
             return true;
         else
             return commandChainAdd(commandStripped);
@@ -150,7 +150,7 @@ public:
 
         bool escaped = false;
         for(char key : commandChain) {
-            if(key == '\\') {
+            if(key == '\'') {
                 typingString = true;
                 continue;
             }
@@ -289,10 +289,10 @@ public:
     }
 
     bool wasJustShiftin = false;
-    bool immediateCommands(int rawKey) {
+    bool immediateCommands(int strippedKey, int rawKey) {
         bool validCommand = true;
         switch (char(rawKey)) {
-            // if ctrl or shift held
+            // shift held
             case 'I':
             case 'J':
             case 'K':
@@ -309,7 +309,8 @@ public:
                 wasJustShiftin = false;
                 break;
         }
-        switch (char(letterLowerCase(rawKey))) {
+        dd(">" + std::string(1, char(letterLowerCase(strippedKey))));
+        switch (char(letterLowerCase(strippedKey))) {
             case 'j':
                 doc.setCaret(doc.charOffset(doc.caret(), -1));
                 break;

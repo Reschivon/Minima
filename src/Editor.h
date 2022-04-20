@@ -100,16 +100,18 @@ public:
               documentLine++, screenLine++) {
 
             // line number
-            attron(COLOR_PAIR(2));
+            if(document.line() == documentLine) attron(COLOR_PAIR(3) | A_BOLD);
+            else                                attron(COLOR_PAIR(2));
+
             std::string row = padLeft(std::to_string(documentLine), (int)ceil(std::log10(lines.size())));
             row += " ";
             mvprintw(screenLine, 0, row.c_str());
             attroff(COLOR_PAIR(2));
 
-            if(document.line() == documentLine)
-                attron(COLOR_PAIR(3));
-            else
-                attron(COLOR_PAIR(0));
+            if(document.line() == documentLine) attroff(COLOR_PAIR(3) | A_BOLD);
+            else                                attroff(COLOR_PAIR(2));
+
+            row += " ";
 
             // actual text
             gutterSize = (int)row.size();
@@ -159,10 +161,10 @@ public:
                 mvprintw(screenLine, gutterSize, fulltext.c_str());
             }
 
-            int screenWidth = getmaxx(stdscr);
-            int currX = gutterSize + fulltext.size();
-            mvprintw(screenLine, currX, std::string(screenWidth - currX, ' ').c_str());
-            // clrtoeol();
+//            int screenWidth = getmaxx(stdscr);
+//            int currX = gutterSize + fulltext.size();
+//            mvprintw(screenLine, currX, std::string(screenWidth - currX, ' ').c_str());
+            clrtoeol();
         }
 
         for(; screenLine < screenHeight; screenLine++) {

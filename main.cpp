@@ -22,10 +22,13 @@ void curses_init()
     mousemask(ALL_MOUSE_EVENTS, nullptr);
 
     init_pair(1, COLOR_WHITE, COLOR_BLUE); // command bar colors
+
     init_color(COLOR_YELLOW, 580, 500, 450);
     init_pair(2, COLOR_YELLOW, -1); // line number colors
-    init_color(COLOR_BLACK, 100, 100, 100);
-    init_pair(3, -1, COLOR_BLACK); // line number colors
+
+    init_color(COLOR_RED, 1000, 700, 0);
+    init_color(COLOR_MAGENTA, 300, 210, 0);
+    init_pair(3, COLOR_RED, COLOR_MAGENTA); // line number colors
 }
 
 int main(int argc, char* argv[]) {
