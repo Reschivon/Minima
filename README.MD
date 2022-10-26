@@ -1,6 +1,6 @@
 # Minima Text Editor
 
-I made Minima because I think the Vim keycombos suck (even after
+I made Minima because I couldn't get used to Vim kebindings (even after
 customizing them), and I needed an ssh-able text editor for
 homework. Minima is designed to be efficient, portable,
 and modular enough for me to edit the code directly in lieu of configs.
